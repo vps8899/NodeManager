@@ -29,6 +29,12 @@ prompt_input() {
     local var_name=$3
     local user_input
     
+    if [[ "$AUTO_INSTALL" == "true" ]]; then
+        eval $var_name=\"$default_val\"
+        echo -e "${YELLOW}${prompt_text}: [自动选取默认值] ${default_val}${PLAIN}"
+        return
+    fi
+    
     if [[ -n "$default_val" ]]; then
         read -p "$(echo -e "${YELLOW}${prompt_text} [默认: ${default_val}]: ${PLAIN}")" user_input
         [[ -z "$user_input" ]] && eval $var_name=\"$default_val\" || eval $var_name=\"$user_input\"
