@@ -39,7 +39,7 @@ EOF
     systemctl enable argo-tunnel >/dev/null 2>&1
     systemctl restart argo-tunnel
     
-    print_info "等待获取 Argo Tunnel 域名..."
+    print_info "等待获取 Argo Tunnel 域名..." >&2
     sleep 5
     local try=0
     local argo_url=""
@@ -53,7 +53,7 @@ EOF
     done
     
     if [[ -z "$argo_url" ]]; then
-        print_err "无法获取 Argo Tunnel 域名，请检查 cloudflared 日志: $log_file"
+        print_err "无法获取 Argo Tunnel 域名，请检查 cloudflared 日志: $log_file" >&2
         return 1
     fi
     

@@ -46,4 +46,7 @@ if [[ ! -L "/usr/local/bin/node-manager" ]]; then
 fi
 
 echo -e "\033[0;32m[OK]\033[0m 安装完成！"
-echo -e "\033[0;33m直接输入 \033[1mnode-manager\033[0m\033[0;33m 即可启动菜单。\033[0m"
+echo -e "\033[0;33m正在启动菜单...\033[0m"
+
+# 自动进入菜单
+/usr/local/bin/node-manager

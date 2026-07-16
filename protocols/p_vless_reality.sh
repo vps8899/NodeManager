@@ -47,9 +47,8 @@ add_vless_reality() {
     "reality": {
       "enabled": true,
       "handshake": {
-        "server_options": {
-          "server_name": "$(echo $server_names | jq -r '.[0]')"
-        }
+        "server": "$(echo $server_names | jq -r '.[0]')",
+        "server_port": 443
       },
       "private_key": "$private_key",
       "short_id": ["$short_id"]

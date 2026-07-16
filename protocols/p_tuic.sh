@@ -9,7 +9,7 @@ add_tuic() {
     local uuid=$(generate_uuid)
     local password=$(generate_random_string 12)
     
-    prompt_input "请输入监听端口 (UDP)" "443" "port"
+    prompt_input "请输入监听端口 (UDP)" "8443" "port"
     if ! check_port "$port"; then
         print_err "端口 $port 被占用，请更换。"
         return 1
