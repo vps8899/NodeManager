@@ -102,6 +102,40 @@ reload_singbox() {
 # 动态重构 config.json
 rebuild_config() {
     print_info "正在重构 Sing-box 配置文件..."
+    
+    mkdir -p "$SB_DIR"
+    if [[ ! -f "$SB_CONF" ]] || ! jq -e . "$SB_CONF" >/dev/null 2>&1; then
+        cat > "$SB_CONF" <<EOF
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "output": "/etc/node-manager/logs/sing-box.log",
+    "timestamp": true
+  },
+  "inbounds": [],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "direct"
+      }
+    ]
+  }
+}
+EOF
+    fi
+    
     # 清空当前的 inbounds
     local temp=$(mktemp)
     jq '.inbounds = []' "$SB_CONF" > "$temp"
