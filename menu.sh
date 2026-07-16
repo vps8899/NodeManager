@@ -102,8 +102,8 @@ show_menu() {
 main() {
     check_sys
     init_db
-    # 首次运行检查 singbox 是否安装
-    if [[ ! -f "$SB_BIN" ]]; then
+    # 首次运行检查 singbox 是否安装或配置缺失
+    if [[ ! -f "$SB_BIN" ]] || [[ ! -f "$SB_CONF" ]]; then
         install_dependencies
         install_singbox
     fi

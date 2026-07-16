@@ -39,8 +39,9 @@ get_node_uri() {
         local uuid=$(echo "$node_json" | jq -r '.uuid')
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
+        local preferred_domain="yg1.ygkkk.dpdns.org"
         
-        uri="vless://${uuid}@${domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo"
+        uri="vless://${uuid}@${preferred_domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo"
     fi
     
     echo "$uri"
