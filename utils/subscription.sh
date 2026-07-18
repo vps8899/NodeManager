@@ -112,6 +112,123 @@ show_all_nodes() {
         fi
     done <<< "$nodes"
     
+    # 生成 Clash YAML
+    local clash_file="/etc/node-manager/output/clash.yaml"
+    cat > "$clash_file" <<EOF
+port: 7890
+socks-port: 7891
+allow-lan: true
+mode: rule
+log-level: info
+ipv6: false
+external-controller: 127.0.0.1:9090
+dns:
+  enable: true
+  listen: 0.0.0.0:1053
+  ipv6: false
+  default-nameserver:
+    - 223.5.5.5
+    - 114.114.114.114
+  nameserver:
+    - https://dns.alidns.com/dns-query
+    - https://doh.pub/dns-query
+
+proxies:
+EOF
+    local proxy_names=""
+    local ip=$(get_ipv4)
+    if [[ -z "$ip" ]]; then
+        ip=$(get_ipv6)
+    fi
+    while read -r node; do
+        local type=$(echo "$node" | jq -r '.type')
+        if [[ "$type" == "vless-reality" ]]; then
+            local uuid=$(echo "$node" | jq -r '.uuid')
+            local port=$(echo "$node" | jq -r '.port')
+            local server_name=$(echo "$node" | jq -r '.server_names[0]')
+            local public_key=$(echo "$node" | jq -r '.public_key')
+            local short_id=$(echo "$node" | jq -r '.short_id')
+            cat >> "$clash_file" <<EOF
+  - name: "VLESS-Reality"
+    type: vless
+    server: $ip
+    port: $port
+    uuid: $uuid
+    network: tcp
+    tls: true
+    udp: true
+    flow: xtls-rprx-vision
+    servername: $server_name
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: $public_key
+      short-id: $short_id
+EOF
+            proxy_names="${proxy_names}\n      - \"VLESS-Reality\""
+        elif [[ "$type" == "hysteria2" ]]; then
+            local password=$(echo "$node" | jq -r '.password')
+            local port=$(echo "$node" | jq -r '.port')
+            cat >> "$clash_file" <<EOF
+  - name: "Hysteria2"
+    type: hysteria2
+    server: $ip
+    port: $port
+    password: $password
+    sni: bing.com
+    skip-cert-verify: true
+EOF
+            proxy_names="${proxy_names}\n      - \"Hysteria2\""
+        elif [[ "$type" == "tuic" ]]; then
+            local uuid=$(echo "$node" | jq -r '.uuid')
+            local password=$(echo "$node" | jq -r '.password')
+            local port=$(echo "$node" | jq -r '.port')
+            cat >> "$clash_file" <<EOF
+  - name: "TUIC"
+    type: tuic
+    server: $ip
+    port: $port
+    uuid: $uuid
+    password: $password
+    sni: bing.com
+    alpn: [h3]
+    skip-cert-verify: true
+EOF
+            proxy_names="${proxy_names}\n      - \"TUIC\""
+        elif [[ "$type" == "argo" ]]; then
+            local uuid=$(echo "$node" | jq -r '.uuid')
+            local domain=$(echo "$node" | jq -r '.domain')
+            local path=$(echo "$node" | jq -r '.path')
+            local preferred_domain="yg1.ygkkk.dpdns.org"
+            cat >> "$clash_file" <<EOF
+  - name: "VLESS-Argo"
+    type: vless
+    server: $preferred_domain
+    port: 443
+    uuid: $uuid
+    network: ws
+    tls: true
+    udp: true
+    servername: $domain
+    ws-opts:
+      path: "$path"
+      headers:
+        Host: $domain
+EOF
+            proxy_names="${proxy_names}\n      - \"VLESS-Argo\""
+        fi
+    done <<< "$nodes"
+    
+    cat >> "$clash_file" <<EOF
+
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:$(echo -e "$proxy_names")
+
+rules:
+  - MATCH,PROXY
+EOF
+    
     print_separator
     
     # 生成 Base64 订阅

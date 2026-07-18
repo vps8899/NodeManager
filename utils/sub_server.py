@@ -15,7 +15,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == f"/{TOKEN}":
             try:
-                with open(FILE_PATH, 'rb') as f:
+                user_agent = self.headers.get("User-Agent", "").lower()
+                serve_file = FILE_PATH
+                
+                # Clash / Clash Verge 客户端检测
+                if "clash" in user_agent or "verge" in user_agent or "mihomo" in user_agent:
+                    serve_file = "/etc/node-manager/output/clash.yaml"
+                    
+                with open(serve_file, 'rb') as f:
                     self.send_response(200)
                     self.send_header("Content-type", "text/plain; charset=utf-8")
                     self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
