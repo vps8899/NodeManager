@@ -1,0 +1,89 @@
+{
+  "log": {
+    "disabled": false,
+    "level": "info",
+    "output": "/etc/node-manager/logs/sing-box.log",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-in-443",
+      "listen": "::",
+      "listen_port": 443,
+      "sniff": true,
+      "sniff_override_destination": true,
+      "users": [
+        {
+          "uuid": "9ecb9630-413c-4b04-8c00-f359e02cb11f",
+          "flow": "xtls-rprx-vision"
+        }
+      ],
+      "tls": {"enabled": false},
+          "private_key": "CINrE2LQ0Jlo_b29553Op5diutGNWwQkz6UTGHeYvGU",
+          "short_id": [
+            "12345678"
+          ]
+        }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "hy2-in-443",
+      "listen": "::",
+      "listen_port": 443,
+      "users": [
+        {
+          "password": "somepassword"
+        }
+      ],
+      "tls": {"enabled": false}
+    },
+    {
+      "type": "tuic",
+      "tag": "tuic-in-8443",
+      "listen": "::",
+      "listen_port": 8443,
+      "users": [
+        {
+          "uuid": "52e182d3-5112-47f9-acf9-ec5bdec4623e",
+          "password": "somepassword"
+        }
+      ],
+      "tls": {"enabled": false}
+    },
+    {
+      "type": "vless",
+      "tag": "vless-argo-8080",
+      "listen": "127.0.0.1",
+      "listen_port": 8080,
+      "users": [
+        {
+          "uuid": "f50dc77e-19b5-43ae-9b99-4b398a736c58"
+        }
+      ],
+      "transport": {
+        "type": "ws",
+        "path": "/somepath"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "direct"
+      }
+    ]
+  }
+}
