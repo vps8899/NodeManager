@@ -134,6 +134,7 @@ uninstall_singbox() {
     
     rm -rf /etc/node-manager
     rm -f "$SB_BIN"
+    rm -f /usr/local/bin/cloudflared
     rm -rf /usr/local/NodeManager
     rm -f /usr/local/bin/node-manager
     
