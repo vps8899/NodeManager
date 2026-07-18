@@ -23,20 +23,34 @@ generate_random_port() {
 
 # 获取本机公网 IPv4
 get_ipv4() {
+    if [[ -n "$GLOBAL_IPV4" ]]; then
+        echo "$GLOBAL_IPV4"
+        return
+    fi
     local ip
     ip=$(curl -s4 -m 5 ip.sb 2>/dev/null)
-    if [[ -z "$ip" ]]; then
+    if [[ -z "$ip" || "$ip" == *html* || "$ip" == *HTML* ]]; then
         ip=$(curl -s4 -m 5 api.ipify.org 2>/dev/null)
+    fi
+    if [[ -n "$ip" && "$ip" != *html* && "$ip" != *HTML* ]]; then
+        export GLOBAL_IPV4="$ip"
     fi
     echo "$ip"
 }
 
 # 获取本机公网 IPv6
 get_ipv6() {
+    if [[ -n "$GLOBAL_IPV6" ]]; then
+        echo "$GLOBAL_IPV6"
+        return
+    fi
     local ip
     ip=$(curl -s6 -m 5 ip.sb 2>/dev/null)
-    if [[ -z "$ip" ]]; then
+    if [[ -z "$ip" || "$ip" == *html* || "$ip" == *HTML* ]]; then
         ip=$(curl -s6 -m 5 api6.ipify.org 2>/dev/null)
+    fi
+    if [[ -n "$ip" && "$ip" != *html* && "$ip" != *HTML* ]]; then
+        export GLOBAL_IPV6="$ip"
     fi
     echo "$ip"
 }
