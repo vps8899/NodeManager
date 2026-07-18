@@ -9,7 +9,7 @@ add_vless_reality() {
     local dest="yahoo.com:443"
     local server_names='["yahoo.com", "www.yahoo.com"]'
     local uuid=$(generate_uuid)
-    local short_id=$(generate_random_string 8 | tr '[:upper:]' '[:lower:]')
+    local short_id=$(openssl rand -hex 8)
     local key_pair
     
     # 交互输入

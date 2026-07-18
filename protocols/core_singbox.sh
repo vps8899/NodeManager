@@ -10,20 +10,34 @@ install_singbox() {
     print_info "正在安装 Sing-box 核心..."
     mkdir -p "$SB_DIR"
     
-    if [[ ! -f "$SB_BIN" ]]; then
+    if [[ ! -f "$SB_BIN" ]] || ! "$SB_BIN" version >/dev/null 2>&1; then
         local arch_suffix="amd64"
         if [[ "$ARCH" == "arm64" ]]; then
             arch_suffix="arm64"
         fi
         
         local dl_url="https://github.com/SagerNet/sing-box/releases/download/v${SB_VERSION}/sing-box-${SB_VERSION}-linux-${arch_suffix}.tar.gz"
-        print_info "下载: $dl_url"
+        local proxy_url="https://ghproxy.net/$dl_url"
         
-        wget -qO /tmp/sing-box.tar.gz "$dl_url"
+        print_info "正在下载 Sing-box (使用加速节点)..."
+        if ! curl -sL -o /tmp/sing-box.tar.gz "$proxy_url"; then
+            print_info "加速下载失败，尝试直连下载..."
+            if ! curl -sL -o /tmp/sing-box.tar.gz "$dl_url"; then
+                print_err "下载失败，请检查网络！"
+                exit 1
+            fi
+        fi
+        
         tar -xzf /tmp/sing-box.tar.gz -C /tmp/
         mv "/tmp/sing-box-${SB_VERSION}-linux-${arch_suffix}/sing-box" "$SB_BIN"
         chmod +x "$SB_BIN"
         rm -rf /tmp/sing-box*
+        
+        if ! "$SB_BIN" version >/dev/null 2>&1; then
+            print_err "Sing-box 内核安装失败：二进制文件损坏或架构不匹配！"
+            rm -f "$SB_BIN"
+            exit 1
+        fi
     fi
     
     # 写入基础配置模板
@@ -97,6 +111,22 @@ reload_singbox() {
     else
         print_err "Sing-box 启动失败，请查看日志。"
     fi
+}
+
+uninstall_singbox() {
+    print_info "正在卸载 Sing-box 及所有节点数据..."
+    systemctl stop sing-box >/dev/null 2>&1
+    systemctl disable sing-box >/dev/null 2>&1
+    rm -f /etc/systemd/system/sing-box.service
+    systemctl daemon-reload
+    
+    rm -rf /etc/node-manager
+    rm -f "$SB_BIN"
+    rm -rf /usr/local/NodeManager
+    rm -f /usr/local/bin/node-manager
+    
+    print_ok "Sing-box 及面板已完全卸载。"
+    exit 0
 }
 
 # 动态重构 config.json
