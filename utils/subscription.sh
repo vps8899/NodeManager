@@ -88,7 +88,7 @@ EOF
     
     systemctl daemon-reload
     systemctl enable node-manager-sub >/dev/null 2>&1
-    systemctl start node-manager-sub >/dev/null 2>&1
+    systemctl restart node-manager-sub >/dev/null 2>&1
 }
 
 show_all_nodes() {
@@ -149,7 +149,7 @@ EOF
             local public_key=$(echo "$node" | jq -r '.public_key')
             local short_id=$(echo "$node" | jq -r '.short_id')
             cat >> "$clash_file" <<EOF
-  - name: "VLESS-Reality"
+  - name: "VLESS-Reality-$port"
     type: vless
     server: $ip
     port: $port
@@ -164,12 +164,12 @@ EOF
       public-key: $public_key
       short-id: $short_id
 EOF
-            proxy_names="${proxy_names}\n      - \"VLESS-Reality\""
+            proxy_names="${proxy_names}\n      - \"VLESS-Reality-$port\""
         elif [[ "$type" == "hysteria2" ]]; then
             local password=$(echo "$node" | jq -r '.password')
             local port=$(echo "$node" | jq -r '.port')
             cat >> "$clash_file" <<EOF
-  - name: "Hysteria2"
+  - name: "Hysteria2-$port"
     type: hysteria2
     server: $ip
     port: $port
@@ -177,13 +177,13 @@ EOF
     sni: bing.com
     skip-cert-verify: true
 EOF
-            proxy_names="${proxy_names}\n      - \"Hysteria2\""
+            proxy_names="${proxy_names}\n      - \"Hysteria2-$port\""
         elif [[ "$type" == "tuic" ]]; then
             local uuid=$(echo "$node" | jq -r '.uuid')
             local password=$(echo "$node" | jq -r '.password')
             local port=$(echo "$node" | jq -r '.port')
             cat >> "$clash_file" <<EOF
-  - name: "TUIC"
+  - name: "TUIC-$port"
     type: tuic
     server: $ip
     port: $port
@@ -193,14 +193,15 @@ EOF
     alpn: [h3]
     skip-cert-verify: true
 EOF
-            proxy_names="${proxy_names}\n      - \"TUIC\""
+            proxy_names="${proxy_names}\n      - \"TUIC-$port\""
         elif [[ "$type" == "argo" ]]; then
             local uuid=$(echo "$node" | jq -r '.uuid')
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
+            local port=$(echo "$node" | jq -r '.port')
             local preferred_domain="yg1.ygkkk.dpdns.org"
             cat >> "$clash_file" <<EOF
-  - name: "VLESS-Argo"
+  - name: "VLESS-Argo-$port"
     type: vless
     server: $preferred_domain
     port: 443
@@ -214,7 +215,7 @@ EOF
       headers:
         Host: $domain
 EOF
-            proxy_names="${proxy_names}\n      - \"VLESS-Argo\""
+            proxy_names="${proxy_names}\n      - \"VLESS-Argo-$port\""
         fi
     done <<< "$nodes"
     
