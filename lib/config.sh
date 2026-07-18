@@ -13,6 +13,9 @@ init_db() {
         mkdir -p "$(dirname "$SETTINGS_FILE")"
         echo '{"version": "1.0.0"}' > "$SETTINGS_FILE"
     fi
+    if [[ ! -d "/etc/node-manager/logs" ]]; then
+        mkdir -p "/etc/node-manager/logs"
+    fi
 }
 
 # 读取设置

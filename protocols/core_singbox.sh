@@ -9,6 +9,7 @@ SB_CONF="$SB_DIR/config.json"
 install_singbox() {
     print_info "正在安装 Sing-box 核心..."
     mkdir -p "$SB_DIR"
+    mkdir -p "/etc/node-manager/logs"
     
     if [[ ! -f "$SB_BIN" ]] || ! "$SB_BIN" version >/dev/null 2>&1; then
         local arch_suffix="amd64"
@@ -134,6 +135,7 @@ rebuild_config() {
     print_info "正在重构 Sing-box 配置文件..."
     
     mkdir -p "$SB_DIR"
+    mkdir -p "/etc/node-manager/logs"
     if [[ ! -f "$SB_CONF" ]] || ! jq -e . "$SB_CONF" >/dev/null 2>&1; then
         cat > "$SB_CONF" <<EOF
 {
