@@ -125,6 +125,10 @@ uninstall_singbox() {
     systemctl disable node-manager-argo-updater >/dev/null 2>&1
     rm -f /etc/systemd/system/node-manager-argo-updater.service
     
+    systemctl stop node-manager-sub >/dev/null 2>&1
+    systemctl disable node-manager-sub >/dev/null 2>&1
+    rm -f /etc/systemd/system/node-manager-sub.service
+    
     rm -f /etc/systemd/system/sing-box.service
     systemctl daemon-reload
     

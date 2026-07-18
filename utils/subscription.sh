@@ -47,6 +47,50 @@ get_node_uri() {
     echo "$uri"
 }
 
+setup_subscription_server() {
+    local sub_info_file="/etc/node-manager/database/sub_info.json"
+    local port
+    local token
+    
+    if [[ -f "$sub_info_file" ]]; then
+        port=$(jq -r '.port' "$sub_info_file")
+        token=$(jq -r '.token' "$sub_info_file")
+    else
+        port=$(generate_random_port)
+        token=$(generate_random_string 32)
+        mkdir -p "$(dirname "$sub_info_file")"
+        cat > "$sub_info_file" <<EOF
+{
+  "port": $port,
+  "token": "$token"
+}
+EOF
+        open_port "$port" "tcp"
+    fi
+    
+    local sub_file="/etc/node-manager/output/sub.txt"
+    local script_file="/usr/local/NodeManager/utils/sub_server.py"
+    
+    cat > /etc/systemd/system/node-manager-sub.service <<EOF
+[Unit]
+Description=Node Manager Subscription Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 $script_file $port $token $sub_file
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    systemctl enable node-manager-sub >/dev/null 2>&1
+    systemctl start node-manager-sub >/dev/null 2>&1
+}
+
 show_all_nodes() {
     local nodes=$(get_all_nodes)
     if [[ -z "$nodes" ]]; then
@@ -79,4 +123,21 @@ show_all_nodes() {
     print_info "订阅内容已保存至: $sub_file"
     echo -e "Base64 格式订阅 (可直接导入客户端):\n${YELLOW}${base64_sub}${PLAIN}"
     print_separator
+    
+    # 启动/刷新订阅分发服务
+    setup_subscription_server
+    local sub_info_file="/etc/node-manager/database/sub_info.json"
+    if [[ -f "$sub_info_file" ]]; then
+        local port=$(jq -r '.port' "$sub_info_file")
+        local token=$(jq -r '.token' "$sub_info_file")
+        local ip=$(get_ipv4)
+        if [[ -z "$ip" ]]; then
+            ip=$(get_ipv6)
+        fi
+        local sub_url="http://${ip}:${port}/${token}"
+        print_info "【全新功能】专属私密自动订阅链接："
+        echo -e "${GREEN}${sub_url}${PLAIN}"
+        echo -e "请将上方链接导入到 Clash / V2rayN / Shadowrocket 中，即可实现节点自动更新！"
+        print_separator
+    fi
 }
