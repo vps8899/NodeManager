@@ -64,18 +64,22 @@ show_menu() {
             ;;
         2)
             add_vless_reality
+            show_all_nodes
             read -p "按回车键继续..."
             ;;
         3)
             add_hysteria2
+            show_all_nodes
             read -p "按回车键继续..."
             ;;
         4)
             add_tuic
+            show_all_nodes
             read -p "按回车键继续..."
             ;;
         5)
             add_argo
+            show_all_nodes
             read -p "按回车键继续..."
             ;;
         6)
