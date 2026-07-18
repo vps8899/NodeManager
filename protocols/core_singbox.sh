@@ -21,9 +21,9 @@ install_singbox() {
         local proxy_url="https://ghproxy.net/$dl_url"
         
         print_info "正在下载 Sing-box (使用加速节点)..."
-        if ! curl -sL -o /tmp/sing-box.tar.gz "$proxy_url"; then
+        if ! curl -L -# -o /tmp/sing-box.tar.gz "$proxy_url"; then
             print_info "加速下载失败，尝试直连下载..."
-            if ! curl -sL -o /tmp/sing-box.tar.gz "$dl_url"; then
+            if ! curl -L -# -o /tmp/sing-box.tar.gz "$dl_url"; then
                 print_err "下载失败，请检查网络！"
                 exit 1
             fi

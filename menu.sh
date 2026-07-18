@@ -46,7 +46,7 @@ show_menu() {
     echo -e " ${GREEN}2.${PLAIN} 添加 VLESS + Reality 节点 (优化线路)"
     echo -e " ${GREEN}3.${PLAIN} 添加 Hysteria2 节点 (普通线路)"
     echo -e " ${GREEN}4.${PLAIN} 添加 TUIC v5 节点 (普通线路)"
-    echo -e " ${GREEN}5.${PLAIN} 添加 VLESS WS TLS Argo (免域名)"
+    echo -e " ${GREEN}5.${PLAIN} 添加 VLESS WS TLS Argo (免域名+永不失联)"
     echo -e " ${GREEN}6.${PLAIN} 查看所有节点与订阅链接"
     echo -e " ${GREEN}7.${PLAIN} 重载 Sing-box 服务"
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"

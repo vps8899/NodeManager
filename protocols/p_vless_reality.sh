@@ -5,15 +5,15 @@ add_vless_reality() {
     print_separator
     print_info "添加 VLESS + Reality 节点"
     
-    local port
-    local dest="yahoo.com:443"
-    local server_names='["yahoo.com", "www.yahoo.com"]'
+    local default_port=$(generate_random_port)
+    local dest="icloud.com:443"
+    local server_names='["icloud.com", "www.icloud.com"]'
     local uuid=$(generate_uuid)
     local short_id=$(openssl rand -hex 8)
     local key_pair
     
     # 交互输入
-    prompt_input "请输入监听端口" "443" "port"
+    prompt_input "请输入监听端口" "$default_port" "port"
     if ! check_port "$port"; then
         print_err "端口 $port 被占用，请更换。"
         return 1

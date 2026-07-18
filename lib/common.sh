@@ -16,6 +16,11 @@ generate_random_string() {
     tr -dc 'a-zA-Z0-9' </dev/urandom | head -c "$length"
 }
 
+# 生成随机高位端口
+generate_random_port() {
+    echo $((RANDOM % 50000 + 10000))
+}
+
 # 获取本机公网 IPv4
 get_ipv4() {
     local ip

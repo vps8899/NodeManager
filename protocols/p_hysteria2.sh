@@ -6,10 +6,10 @@ add_hysteria2() {
     print_separator
     print_info "添加 Hysteria2 节点"
     
-    local port
+    local default_port=$(generate_random_port)
     local password=$(generate_random_string 12)
     
-    prompt_input "请输入监听端口 (UDP)" "443" "port"
+    prompt_input "请输入监听端口 (UDP)" "$default_port" "port"
     if ! check_port "$port"; then
         print_err "端口 $port 被占用，请更换。"
         return 1
@@ -31,6 +31,7 @@ add_hysteria2() {
   ],
   "tls": {
     "enabled": true,
+    "alpn": ["h3"],
     "certificate_path": "$cert_dir/cert.pem",
     "key_path": "$cert_dir/key.pem"
   }
