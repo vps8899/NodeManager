@@ -114,6 +114,7 @@ show_all_nodes() {
     
     # 生成 Clash YAML
     local clash_file="/etc/node-manager/output/clash.yaml"
+    mkdir -p "$(dirname "$clash_file")"
     cat > "$clash_file" <<EOF
 port: 7890
 socks-port: 7891
@@ -227,6 +228,9 @@ proxy-groups:
     proxies:$(echo -e "$proxy_names")
 
 rules:
+  - GEOSITE,CN,DIRECT
+  - GEOIP,LAN,DIRECT,no-resolve
+  - GEOIP,CN,DIRECT
   - MATCH,PROXY
 EOF
     
