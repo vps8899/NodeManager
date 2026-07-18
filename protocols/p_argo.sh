@@ -39,6 +39,27 @@ EOF
     systemctl enable argo-tunnel >/dev/null 2>&1
     systemctl restart argo-tunnel
     
+    # 注册自动更新域名的服务
+    local updater_script="/usr/local/NodeManager/utils/argo_updater.sh"
+    if [[ -f "$updater_script" ]]; then
+        cat > /etc/systemd/system/node-manager-argo-updater.service <<EOF
+[Unit]
+Description=Node Manager Argo Domain Updater
+After=argo-tunnel.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $updater_script
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl enable node-manager-argo-updater >/dev/null 2>&1
+        systemctl restart node-manager-argo-updater >/dev/null 2>&1
+    fi
+    
     print_info "等待获取 Argo Tunnel 域名..." >&2
     sleep 5
     local try=0

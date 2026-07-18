@@ -118,6 +118,13 @@ uninstall_singbox() {
     print_info "正在卸载 Sing-box 及所有节点数据..."
     systemctl stop sing-box >/dev/null 2>&1
     systemctl disable sing-box >/dev/null 2>&1
+    systemctl stop argo-tunnel >/dev/null 2>&1
+    systemctl disable argo-tunnel >/dev/null 2>&1
+    rm -f /etc/systemd/system/argo-tunnel.service
+    systemctl stop node-manager-argo-updater >/dev/null 2>&1
+    systemctl disable node-manager-argo-updater >/dev/null 2>&1
+    rm -f /etc/systemd/system/node-manager-argo-updater.service
+    
     rm -f /etc/systemd/system/sing-box.service
     systemctl daemon-reload
     
