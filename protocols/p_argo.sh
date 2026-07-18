@@ -27,6 +27,7 @@ After=network.target
 [Service]
 TimeoutStartSec=0
 Type=simple
+ExecStartPre=-/bin/rm -f $log_file
 ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:$port --loglevel info --logfile $log_file
 Restart=on-failure
 RestartSec=5s
@@ -91,6 +92,18 @@ add_argo() {
     while ! check_port "$port"; do
         ((port++))
     done
+    
+    # 删除旧的 Argo 节点
+    local existing_nodes=$(get_all_nodes)
+    if [[ -n "$existing_nodes" ]]; then
+        while read -r node; do
+            local ntype=$(echo "$node" | jq -r '.type')
+            if [[ "$ntype" == "argo" ]]; then
+                local nuuid=$(echo "$node" | jq -r '.id')
+                delete_node "$nuuid"
+            fi
+        done <<< "$existing_nodes"
+    fi
     
     local uuid=$(generate_uuid)
     local path="/$(generate_random_string 8)"

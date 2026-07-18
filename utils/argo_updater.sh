@@ -36,7 +36,7 @@ update_argo_domain() {
             if [[ "$old_domain" != "$domain" ]]; then
                 # 域名变了，更新 nodes.json
                 local temp=$(mktemp)
-                jq '(.nodes[] | select(.type == "argo") | .domain) = "'"$domain"'" | (.nodes[] | select(.type == "argo") | .inbound.tls.server_name) = "'"$domain"'"' "/etc/node-manager/database/nodes.json" > "$temp"
+                jq '(.nodes[] | select(.type == "argo") | .domain) = "'"$domain"'"' "/etc/node-manager/database/nodes.json" > "$temp"
                 mv "$temp" "/etc/node-manager/database/nodes.json"
                 
                 # 重新生成 sub.txt
