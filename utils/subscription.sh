@@ -39,7 +39,7 @@ get_node_uri() {
         local uuid=$(echo "$node_json" | jq -r '.uuid')
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
-        local preferred_domain="yg1.ygkkk.dpdns.org"
+        local preferred_domain="cdn.091224.xyz"
         
         uri="vless://${uuid}@${preferred_domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo"
     fi
@@ -200,7 +200,7 @@ EOF
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
             local port=$(echo "$node" | jq -r '.port')
-            local preferred_domain="yg1.ygkkk.dpdns.org"
+            local preferred_domain="cdn.091224.xyz"
             cat >> "$clash_file" <<EOF
   - name: "VLESS-Argo-$port"
     type: vless
