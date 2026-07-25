@@ -260,6 +260,13 @@ EOF
         print_info "【全新功能】专属私密自动订阅链接："
         echo -e "${GREEN}${sub_url}${PLAIN}"
         echo -e "请将上方链接导入到 Clash / V2rayN / Shadowrocket 中，即可实现节点自动更新！"
+        
+        if command -v qrencode >/dev/null 2>&1; then
+            echo ""
+            print_info "手机客户端 (小火箭/NekoBox) 可直接扫描下方二维码导入订阅："
+            qrencode -t ANSIUTF8 "$sub_url"
+        fi
+        
         print_separator
     fi
 }
