@@ -49,9 +49,10 @@ Description=Node Manager Argo Domain Updater
 After=argo-tunnel.service
 
 [Service]
-Type=oneshot
+Type=simple
 ExecStart=/bin/bash $updater_script
-RemainAfterExit=yes
+Restart=always
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
