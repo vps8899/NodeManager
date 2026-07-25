@@ -47,7 +47,7 @@ install_singbox() {
 {
   "log": {
     "disabled": false,
-    "level": "info",
+    "level": "error",
     "output": "/etc/node-manager/logs/sing-box.log",
     "timestamp": true
   },
@@ -153,7 +153,7 @@ rebuild_config() {
 {
   "log": {
     "disabled": false,
-    "level": "info",
+    "level": "error",
     "output": "/etc/node-manager/logs/sing-box.log",
     "timestamp": true
   },
