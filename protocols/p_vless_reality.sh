@@ -6,7 +6,7 @@ add_vless_reality() {
     print_info "添加 VLESS + Reality 节点"
     
     local default_port=$(generate_random_port)
-    local dest="www.microsoft.com:443"
+    local dest="gateway.icloud.com:443"
     local uuid=$(generate_uuid)
     local short_id=$(openssl rand -hex 8)
     local key_pair
@@ -18,7 +18,7 @@ add_vless_reality() {
         return 1
     fi
     
-    prompt_input "请输入目标伪装域名 (dest, 例如 www.microsoft.com:443)" "$dest" "dest"
+    prompt_input "请输入目标伪装域名 (dest, 例如 gateway.icloud.com:443)" "$dest" "dest"
     
     # 根据用户输入的 dest 提取纯域名，构建 server_names JSON 数组
     local pure_domain=$(echo "$dest" | cut -d':' -f1)
