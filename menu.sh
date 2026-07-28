@@ -50,7 +50,7 @@ show_menu() {
     echo -e " ${GREEN}6.${PLAIN} 查看所有节点与订阅链接"
     echo -e " ${GREEN}7.${PLAIN} 重载 Sing-box 服务"
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"
-    echo -e " ${GREEN}9.${PLAIN} 为订阅链接申请 HTTPS 证书 (ZeroSSL IP 证书)"
+    echo -e " ${GREEN}9.${PLAIN} 为订阅链接申请 HTTPS 证书 (Let's Encrypt IP 证书)"
     echo -e " ${RED}10.${PLAIN} 卸载 Node Manager"
     echo -e " ${GREEN}0.${PLAIN} 退出"
     print_separator
