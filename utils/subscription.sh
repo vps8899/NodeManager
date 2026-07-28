@@ -263,11 +263,15 @@ EOF
             ip=$(get_ipv6)
         fi
         local protocol="http"
+        local host="$ip"
         local cert_dir="/etc/node-manager/certs/zerossl_ip"
         if [[ -f "$cert_dir/cert.pem" && -f "$cert_dir/key.pem" ]]; then
             protocol="https"
+            if [[ -f "$cert_dir/domain.txt" ]]; then
+                host=$(cat "$cert_dir/domain.txt")
+            fi
         fi
-        local sub_url="${protocol}://${ip}:${port}/${token}"
+        local sub_url="${protocol}://${host}:${port}/${token}"
         print_info "【全新功能】专属私密自动订阅链接："
         echo -e "${GREEN}${sub_url}${PLAIN}"
         echo -e "请将上方链接导入到 Clash / V2rayN / Shadowrocket 中，即可实现节点自动更新！"
