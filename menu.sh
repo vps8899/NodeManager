@@ -119,6 +119,13 @@ main() {
     if [[ ! -f "$SB_BIN" ]] || [[ ! -f "$SB_CONF" ]]; then
         install_dependencies
         install_singbox
+        
+        # 首次安装完成后，自动尝试为订阅链接申请 HTTPS 证书
+        print_separator
+        print_info "首次安装：正在为您自动申请全网受信任的 HTTPS 订阅证书..."
+        issue_zerossl_ip_cert || true
+        print_separator
+        sleep 2
     fi
 
     while true; do
