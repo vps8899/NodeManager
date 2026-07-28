@@ -3,13 +3,17 @@ import socketserver
 import sys
 import os
 
-if len(sys.argv) != 4:
-    print("Usage: python3 sub_server.py <PORT> <TOKEN> <FILE_PATH>")
+import ssl
+
+if len(sys.argv) < 4:
+    print("Usage: python3 sub_server.py <PORT> <TOKEN> <FILE_PATH> [CERT_PATH] [KEY_PATH]")
     sys.exit(1)
 
 PORT = int(sys.argv[1])
 TOKEN = sys.argv[2]
 FILE_PATH = sys.argv[3]
+CERT_PATH = sys.argv[4] if len(sys.argv) > 4 else None
+KEY_PATH = sys.argv[5] if len(sys.argv) > 5 else None
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -40,6 +44,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 try:
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        if CERT_PATH and KEY_PATH and os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(CERT_PATH, KEY_PATH)
+            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+            print(f"Serving HTTPS on port {PORT}...")
+        else:
+            print(f"Serving HTTP on port {PORT}...")
         httpd.serve_forever()
 except Exception as e:
     print(f"Error starting server: {e}")

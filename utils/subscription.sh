@@ -71,6 +71,12 @@ EOF
     local sub_file="/etc/node-manager/output/sub.txt"
     local script_file="/usr/local/NodeManager/utils/sub_server.py"
     
+    local cert_dir="/etc/node-manager/certs/zerossl_ip"
+    local cert_arg=""
+    if [[ -f "$cert_dir/cert.pem" && -f "$cert_dir/key.pem" ]]; then
+        cert_arg="$cert_dir/cert.pem $cert_dir/key.pem"
+    fi
+    
     cat > /etc/systemd/system/node-manager-sub.service <<EOF
 [Unit]
 Description=Node Manager Subscription Server
@@ -78,7 +84,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 $script_file $port $token $sub_file
+ExecStart=/usr/bin/python3 $script_file $port $token $sub_file $cert_arg
 Restart=always
 RestartSec=5s
 
@@ -256,7 +262,12 @@ EOF
         if [[ -z "$ip" ]]; then
             ip=$(get_ipv6)
         fi
-        local sub_url="http://${ip}:${port}/${token}"
+        local protocol="http"
+        local cert_dir="/etc/node-manager/certs/zerossl_ip"
+        if [[ -f "$cert_dir/cert.pem" && -f "$cert_dir/key.pem" ]]; then
+            protocol="https"
+        fi
+        local sub_url="${protocol}://${ip}:${port}/${token}"
         print_info "【全新功能】专属私密自动订阅链接："
         echo -e "${GREEN}${sub_url}${PLAIN}"
         echo -e "请将上方链接导入到 Clash / V2rayN / Shadowrocket 中，即可实现节点自动更新！"

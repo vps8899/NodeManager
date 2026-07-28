@@ -50,7 +50,7 @@ check_arch() {
 
 install_dependencies() {
     print_info "正在检查并安装必要的依赖项..."
-    local deps="curl wget jq openssl unzip qrencode cron socat tar gzip bc git python3"
+    local deps="curl wget jq openssl unzip qrencode cron socat tar gzip bc git python3 lsof net-tools"
     
     if [[ "$PKG_MANAGER" == "apt" ]]; then
         eval $PKG_UPDATE >/dev/null 2>&1

@@ -50,12 +50,13 @@ show_menu() {
     echo -e " ${GREEN}6.${PLAIN} 查看所有节点与订阅链接"
     echo -e " ${GREEN}7.${PLAIN} 重载 Sing-box 服务"
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"
-    echo -e " ${RED}9.${PLAIN} 卸载 Node Manager"
+    echo -e " ${GREEN}9.${PLAIN} 为订阅链接申请 HTTPS 证书 (ZeroSSL IP 证书)"
+    echo -e " ${RED}10.${PLAIN} 卸载 Node Manager"
     echo -e " ${GREEN}0.${PLAIN} 退出"
     print_separator
     
     local choice
-    read -p "请输入选项 [0-9]: " choice
+    read -p "请输入选项 [0-10]: " choice
     
     case "$choice" in
         1)
@@ -95,6 +96,10 @@ show_menu() {
             read -p "按回车键继续..."
             ;;
         9)
+            issue_zerossl_ip_cert
+            read -p "按回车键继续..."
+            ;;
+        10)
             uninstall_singbox
             ;;
         0)
