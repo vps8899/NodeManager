@@ -29,9 +29,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 with open(serve_file, 'rb') as f:
                     self.send_response(200)
                     self.send_header("Content-type", "text/plain; charset=utf-8")
+                    
+                    content = f.read()
+                    self.send_header("Content-Length", str(len(content)))
                     self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                     self.end_headers()
-                    self.wfile.write(f.read())
+                    self.wfile.write(content)
             except Exception as e:
                 self.send_error(500, str(e))
         else:
