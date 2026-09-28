@@ -58,7 +58,7 @@ issue_zerossl_ip_cert() {
     mkdir -p "$cert_dir"
     
     print_info "正在通过 HTTP-01 验证申请 Let's Encrypt IP 证书，请耐心等待 (约 1-3 分钟)..."
-    if eval "$acme_cmd --issue -d $ip --standalone --server letsencrypt --cert-profile shortlived"; then
+    if eval "$acme_cmd --issue -d $ip --standalone --server letsencrypt --cert-profile shortlived --force"; then
         print_info "证书申请成功！正在安装证书到 $cert_dir..."
         eval "$acme_cmd --install-cert -d $ip \
             --key-file $cert_dir/key.pem \
