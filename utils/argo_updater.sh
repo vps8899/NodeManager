@@ -25,9 +25,12 @@ update_argo_domain() {
                 local old_domain=$(echo "$argo_node" | jq -r '.domain')
                 if [[ "$old_domain" != "$domain" ]]; then
                     # 域名变了，更新 nodes.json
-                    local temp=$(mktemp)
-                    jq '(.nodes[] | select(.type == "argo") | .domain) = "'"$domain"'"' "/etc/node-manager/database/nodes.json" > "$temp"
-                    mv "$temp" "/etc/node-manager/database/nodes.json"
+                    local temp=$(mktemp -p "/etc/node-manager/database")
+                    if jq '(.nodes[] | select(.type == "argo") | .domain) = "'"$domain"'"' "/etc/node-manager/database/nodes.json" > "$temp"; then
+                        mv "$temp" "/etc/node-manager/database/nodes.json"
+                    else
+                        rm -f "$temp"
+                    fi
                     
                     # 重新生成 sub.txt 和 clash.yaml，并重启分发服务
                     show_all_nodes >/dev/null 2>&1

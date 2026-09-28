@@ -31,12 +31,12 @@ set_setting() {
     local key=$1
     local value=$2
     if [[ -f "$SETTINGS_FILE" ]]; then
-        local temp=$(mktemp)
+        local temp=$(mktemp -p "$(dirname "$SETTINGS_FILE")")
         # 区分数字/布尔值和字符串
         if [[ "$value" == "true" || "$value" == "false" || "$value" =~ ^[0-9]+$ ]]; then
-            jq ".$key = $value" "$SETTINGS_FILE" > "$temp"
+            jq ".$key = $value" "$SETTINGS_FILE" > "$temp" || { rm -f "$temp"; return 1; }
         else
-            jq ".$key = \"$value\"" "$SETTINGS_FILE" > "$temp"
+            jq ".$key = \"$value\"" "$SETTINGS_FILE" > "$temp" || { rm -f "$temp"; return 1; }
         fi
         mv "$temp" "$SETTINGS_FILE"
     fi
@@ -46,8 +46,8 @@ set_setting() {
 add_node() {
     local node_json=$1
     if [[ -f "$DB_FILE" ]]; then
-        local temp=$(mktemp)
-        jq ".nodes += [$node_json]" "$DB_FILE" > "$temp"
+        local temp=$(mktemp -p "$(dirname "$DB_FILE")")
+        jq ".nodes += [$node_json]" "$DB_FILE" > "$temp" || { rm -f "$temp"; return 1; }
         mv "$temp" "$DB_FILE"
     fi
 }
@@ -56,8 +56,8 @@ add_node() {
 delete_node() {
     local uuid=$1
     if [[ -f "$DB_FILE" ]]; then
-        local temp=$(mktemp)
-        jq "del(.nodes[] | select(.id == \"$uuid\"))" "$DB_FILE" > "$temp"
+        local temp=$(mktemp -p "$(dirname "$DB_FILE")")
+        jq "del(.nodes[] | select(.id == \"$uuid\"))" "$DB_FILE" > "$temp" || { rm -f "$temp"; return 1; }
         mv "$temp" "$DB_FILE"
     fi
 }

@@ -181,8 +181,8 @@ EOF
     fi
     
     # 清空当前的 inbounds
-    local temp=$(mktemp)
-    jq '.inbounds = []' "$SB_CONF" > "$temp"
+    local temp=$(mktemp -p "$(dirname "$SB_CONF")")
+    jq '.inbounds = []' "$SB_CONF" > "$temp" || { rm -f "$temp"; return 1; }
     mv "$temp" "$SB_CONF"
     
     # 从 database 遍历节点并注入 inbound
@@ -193,8 +193,11 @@ EOF
             local inbound_json=$(echo "$node" | jq -c '.inbound')
             
             if [[ "$inbound_json" != "null" ]]; then
-                jq ".inbounds += [$inbound_json]" "$SB_CONF" > "$temp"
-                mv "$temp" "$SB_CONF"
+                if jq ".inbounds += [$inbound_json]" "$SB_CONF" > "$temp"; then
+                    mv "$temp" "$SB_CONF"
+                else
+                    rm -f "$temp"
+                fi
             fi
         done <<< "$nodes"
     fi
