@@ -26,10 +26,16 @@ issue_zerossl_ip_cert() {
     
     print_info "本机公网 IP: $ip"
     
-    # 检查 80 端口是否被占用
+    # 强制释放 80 端口
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k 80/tcp >/dev/null 2>&1
+    fi
+    killall socat >/dev/null 2>&1
+    
+    # 检查 80 端口是否依然被占用
     if lsof -i :80 >/dev/null 2>&1 || netstat -tuln | grep -q ":80 "; then
-        print_err "您的 80 端口正在被占用，acme.sh standalone 模式需要占用 80 端口。"
-        print_warn "请先停止占用 80 端口的程序 (如 nginx, apache2 等) 后再重试。"
+        print_err "您的 80 端口正在被占用，且无法自动释放。acme.sh 需要 80 端口。"
+        print_warn "请手动停止占用 80 端口的程序 (如 nginx, apache2) 后再重试。"
         return 1
     fi
     
@@ -67,7 +73,7 @@ issue_zerossl_ip_cert() {
         show_all_nodes >/dev/null 2>&1
         print_info "可以通过主菜单按 6 查看全新的 HTTPS 订阅链接。"
     else
-        print_err "证书申请失败！请检查您的 IP 是否被屏蔽或 80 端口被封禁。"
+        print_info "使用 Let's Encrypt 申请 IP 证书受阻。自动回退：可以正常使用自签名证书，节点不受影响。"
         return 1
     fi
 }

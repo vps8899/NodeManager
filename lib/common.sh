@@ -27,6 +27,17 @@ get_ipv4() {
         echo "$GLOBAL_IPV4"
         return
     fi
+    
+    local ip_file="/etc/node-manager/database/ipv4.txt"
+    if [[ -f "$ip_file" ]]; then
+        local cached_ip=$(cat "$ip_file")
+        if [[ -n "$cached_ip" ]]; then
+            export GLOBAL_IPV4="$cached_ip"
+            echo "$cached_ip"
+            return
+        fi
+    fi
+    
     local ip
     ip=$(curl -s4 -m 5 ip.sb 2>/dev/null)
     if [[ -z "$ip" || "$ip" == *html* || "$ip" == *HTML* ]]; then
@@ -34,6 +45,8 @@ get_ipv4() {
     fi
     if [[ -n "$ip" && "$ip" != *html* && "$ip" != *HTML* ]]; then
         export GLOBAL_IPV4="$ip"
+        mkdir -p "$(dirname "$ip_file")"
+        echo "$ip" > "$ip_file"
     fi
     echo "$ip"
 }
@@ -44,6 +57,17 @@ get_ipv6() {
         echo "$GLOBAL_IPV6"
         return
     fi
+    
+    local ip_file="/etc/node-manager/database/ipv6.txt"
+    if [[ -f "$ip_file" ]]; then
+        local cached_ip=$(cat "$ip_file")
+        if [[ -n "$cached_ip" ]]; then
+            export GLOBAL_IPV6="$cached_ip"
+            echo "$cached_ip"
+            return
+        fi
+    fi
+    
     local ip
     ip=$(curl -s6 -m 5 ip.sb 2>/dev/null)
     if [[ -z "$ip" || "$ip" == *html* || "$ip" == *HTML* ]]; then
@@ -51,6 +75,8 @@ get_ipv6() {
     fi
     if [[ -n "$ip" && "$ip" != *html* && "$ip" != *HTML* ]]; then
         export GLOBAL_IPV6="$ip"
+        mkdir -p "$(dirname "$ip_file")"
+        echo "$ip" > "$ip_file"
     fi
     echo "$ip"
 }
