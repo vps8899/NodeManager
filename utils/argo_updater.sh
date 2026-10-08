@@ -2,7 +2,11 @@
 # argo_updater.sh - 自动更新 Argo Tunnel 域名
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+source "$SCRIPT_DIR/../lib/ui.sh"
+source "$SCRIPT_DIR/../lib/system.sh"
+source "$SCRIPT_DIR/../lib/common.sh"
 source "$SCRIPT_DIR/../lib/config.sh"
+source "$SCRIPT_DIR/../utils/firewall.sh"
 source "$SCRIPT_DIR/../utils/subscription.sh"
 
 LOG_FILE="/etc/node-manager/logs/argo.log"
