@@ -1,26 +1,27 @@
 #!/usr/bin/env bash
 # menu.sh - 交互式菜单入口
 
-# 获取当前脚本所在目录 (解决软链接路径问题)
-SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# 获取当前脚本所在根目录 (解决软链接路径问题)
+ROOT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+SCRIPT_DIR="$ROOT_DIR"
 
 # 引入基础库
-source "$SCRIPT_DIR/lib/ui.sh"
-source "$SCRIPT_DIR/lib/system.sh"
-source "$SCRIPT_DIR/lib/common.sh"
-source "$SCRIPT_DIR/lib/config.sh"
+source "$ROOT_DIR/lib/ui.sh"
+source "$ROOT_DIR/lib/system.sh"
+source "$ROOT_DIR/lib/common.sh"
+source "$ROOT_DIR/lib/config.sh"
 
 # 引入功能模块
-source "$SCRIPT_DIR/utils/firewall.sh"
-source "$SCRIPT_DIR/utils/cert.sh"
-source "$SCRIPT_DIR/utils/subscription.sh"
+source "$ROOT_DIR/utils/firewall.sh"
+source "$ROOT_DIR/utils/cert.sh"
+source "$ROOT_DIR/utils/subscription.sh"
 
 # 引入协议模块
-source "$SCRIPT_DIR/protocols/core_singbox.sh"
-source "$SCRIPT_DIR/protocols/p_vless_reality.sh"
-source "$SCRIPT_DIR/protocols/p_hysteria2.sh"
-source "$SCRIPT_DIR/protocols/p_tuic.sh"
-source "$SCRIPT_DIR/protocols/p_argo.sh"
+source "$ROOT_DIR/protocols/core_singbox.sh"
+source "$ROOT_DIR/protocols/p_vless_reality.sh"
+source "$ROOT_DIR/protocols/p_hysteria2.sh"
+source "$ROOT_DIR/protocols/p_tuic.sh"
+source "$ROOT_DIR/protocols/p_argo.sh"
 
 add_all_nodes() {
     export AUTO_INSTALL="true"
@@ -100,7 +101,10 @@ show_menu() {
             read -p "按回车键继续..."
             ;;
         10)
-            uninstall_singbox
+            if prompt_confirm "确定要完全卸载 Node Manager 及其所有节点数据吗？" "N"; then
+                uninstall_singbox
+            fi
+            read -p "按回车键继续..."
             ;;
         0)
             exit 0

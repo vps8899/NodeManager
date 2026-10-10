@@ -41,9 +41,7 @@ chmod +x "$INSTALL_DIR/menu.sh"
 chmod +x "$INSTALL_DIR/install.sh"
 
 # 创建全局软链接
-if [[ ! -L "/usr/local/bin/node-manager" ]]; then
-    ln -sf "$INSTALL_DIR/menu.sh" "/usr/local/bin/node-manager"
-fi
+ln -sf "$INSTALL_DIR/menu.sh" "/usr/local/bin/node-manager"
 
 echo -e "\033[0;32m[OK]\033[0m 安装完成！"
 echo -e "\033[0;33m正在启动菜单...\033[0m"
