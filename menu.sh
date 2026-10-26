@@ -26,7 +26,7 @@ source "$ROOT_DIR/protocols/p_argo.sh"
 add_all_nodes() {
     export AUTO_INSTALL="true"
     print_separator
-    print_info "开始一键自动搭建四个节点..."
+    print_info "开始一键自动搭建节点组合 (VLESS+HY2+TUIC+3个多端口Argo)..."
     add_vless_reality
     add_hysteria2
     add_tuic
@@ -34,7 +34,7 @@ add_all_nodes() {
     export AUTO_INSTALL="false"
     
     print_separator
-    print_ok "四个节点已全部搭建完成！"
+    print_ok "推荐节点已全部搭建完成！"
     show_all_nodes
 }
 
@@ -43,11 +43,11 @@ show_menu() {
     print_separator
     echo -e "${CYAN}       Node Manager - 多协议节点一键管理工具${PLAIN}"
     print_separator
-    echo -e " ${GREEN}1.${PLAIN} 一键创建推荐节点组合 (VLESS+HY2+TUIC+Argo)"
+    echo -e " ${GREEN}1.${PLAIN} 一键创建推荐节点组合 (VLESS+HY2+TUIC+多端口Argo)"
     echo -e " ${GREEN}2.${PLAIN} 添加 VLESS + Reality 节点 (优化线路)"
     echo -e " ${GREEN}3.${PLAIN} 添加 Hysteria2 节点 (普通线路)"
     echo -e " ${GREEN}4.${PLAIN} 添加 TUIC v5 节点 (普通线路)"
-    echo -e " ${GREEN}5.${PLAIN} 添加 VLESS WS TLS Argo (免域名+永不失联)"
+    echo -e " ${GREEN}5.${PLAIN} 添加 VLESS WS TLS Argo (免域名+多端口防失效)"
     echo -e " ${GREEN}6.${PLAIN} 查看所有节点与订阅链接"
     echo -e " ${GREEN}7.${PLAIN} 重载 Sing-box 服务"
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"

@@ -45,8 +45,14 @@ ln -sf "$INSTALL_DIR/menu.sh" "/usr/local/bin/node-manager"
 
 # 若后台守护进程已存在，重启以载入最新代码并激活自愈逻辑
 if [[ -f /etc/systemd/system/node-manager-argo-updater.service ]]; then
-    systemctl daemon-reload >/dev/null 2>&1
-    systemctl restart argo-tunnel >/dev/null 2>&1 || true
+    for i in 1 2 3; do
+        if [[ -f "/etc/systemd/system/argo-tunnel-$i.service" ]]; then
+            systemctl restart "argo-tunnel-$i" >/dev/null 2>&1 || true
+        fi
+    done
+    if [[ -f "/etc/systemd/system/argo-tunnel.service" ]]; then
+        systemctl restart argo-tunnel >/dev/null 2>&1 || true
+    fi
     systemctl restart node-manager-argo-updater >/dev/null 2>&1 || true
 fi
 if [[ -f /etc/systemd/system/node-manager-sub.service ]]; then

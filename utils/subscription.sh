@@ -54,9 +54,10 @@ get_node_uri() {
         local uuid=$(echo "$node_json" | jq -r '.uuid')
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
-        local preferred_domain="www.shopify.com"
+        local cdn_port=$(echo "$node_json" | jq -r '.cdn_port // 443')
+        local preferred_domain="saas.sin.fan"
         
-        uri="vless://${uuid}@${preferred_domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo"
+        uri="vless://${uuid}@${preferred_domain}:${cdn_port}?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-${cdn_port}"
     fi
     
     echo "$uri"
@@ -229,12 +230,14 @@ EOF
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
             local port=$(echo "$node" | jq -r '.port')
-            local preferred_domain="www.shopify.com"
+            local cdn_port=$(echo "$node" | jq -r '.cdn_port // 443')
+            local preferred_domain="saas.sin.fan"
+            local proxy_name="VLESS-Argo-${cdn_port}"
             cat >> "$clash_file" <<EOF
-  - name: "VLESS-Argo-$port"
+  - name: "$proxy_name"
     type: vless
     server: $preferred_domain
-    port: 443
+    port: $cdn_port
     uuid: $uuid
     network: ws
     tls: true
@@ -245,7 +248,7 @@ EOF
       headers:
         Host: $domain
 EOF
-            proxy_names="${proxy_names}\n      - \"VLESS-Argo-$port\""
+            proxy_names="${proxy_names}\n      - \"$proxy_name\""
         fi
     done <<< "$nodes"
     

@@ -118,6 +118,11 @@ uninstall_singbox() {
     print_info "正在卸载 Sing-box 及所有节点数据..."
     systemctl stop sing-box >/dev/null 2>&1
     systemctl disable sing-box >/dev/null 2>&1
+    for i in 1 2 3; do
+        systemctl stop "argo-tunnel-$i" >/dev/null 2>&1
+        systemctl disable "argo-tunnel-$i" >/dev/null 2>&1
+        rm -f "/etc/systemd/system/argo-tunnel-$i.service"
+    done
     systemctl stop argo-tunnel >/dev/null 2>&1
     systemctl disable argo-tunnel >/dev/null 2>&1
     rm -f /etc/systemd/system/argo-tunnel.service
