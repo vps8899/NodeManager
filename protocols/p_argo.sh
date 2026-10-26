@@ -22,7 +22,8 @@ start_argo_tunnel() {
     cat > /etc/systemd/system/argo-tunnel.service <<EOF
 [Unit]
 Description=Cloudflare Argo Tunnel
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 TimeoutStartSec=0
@@ -46,7 +47,8 @@ EOF
         cat > /etc/systemd/system/node-manager-argo-updater.service <<EOF
 [Unit]
 Description=Node Manager Argo Domain Updater
-After=argo-tunnel.service
+After=argo-tunnel.service network-online.target
+Wants=argo-tunnel.service
 
 [Service]
 Type=simple
