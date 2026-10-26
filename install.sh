@@ -43,12 +43,14 @@ chmod +x "$INSTALL_DIR/install.sh"
 # 创建全局软链接
 ln -sf "$INSTALL_DIR/menu.sh" "/usr/local/bin/node-manager"
 
-# 若后台守护进程已在运行，重启以载入最新代码
-if systemctl is-active node-manager-argo-updater >/dev/null 2>&1; then
-    systemctl restart node-manager-argo-updater >/dev/null 2>&1
+# 若后台守护进程已存在，重启以载入最新代码并激活自愈逻辑
+if [[ -f /etc/systemd/system/node-manager-argo-updater.service ]]; then
+    systemctl daemon-reload >/dev/null 2>&1
+    systemctl restart argo-tunnel >/dev/null 2>&1 || true
+    systemctl restart node-manager-argo-updater >/dev/null 2>&1 || true
 fi
-if systemctl is-active node-manager-sub >/dev/null 2>&1; then
-    systemctl restart node-manager-sub >/dev/null 2>&1
+if [[ -f /etc/systemd/system/node-manager-sub.service ]]; then
+    systemctl restart node-manager-sub >/dev/null 2>&1 || true
 fi
 
 echo -e "\033[0;32m[OK]\033[0m 安装完成！"

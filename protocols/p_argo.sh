@@ -29,7 +29,7 @@ TimeoutStartSec=0
 Type=simple
 ExecStartPre=-/bin/rm -f $log_file
 ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:$port --loglevel info --logfile $log_file
-Restart=on-failure
+Restart=always
 RestartSec=5s
 
 [Install]
