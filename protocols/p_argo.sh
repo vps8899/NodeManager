@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# p_argo.sh - VLESS WS TLS Argo 协议模块 (支持多端口与独立多隧道冗余)
+# p_argo.sh - VLESS + VMess 双引擎独立 Argo Tunnel 模块 (2026 最新企业级抗封锁与自愈架构)
 
 install_cloudflared() {
     if ! command -v cloudflared >/dev/null 2>&1; then
@@ -14,7 +14,7 @@ install_cloudflared() {
     fi
 }
 
-# 启动单条独立的 Argo 临时隧道服务
+# 启动单条独立的 Argo 临时隧道服务 (强制 HTTP/2 协议，彻底解决 UDP/QUIC 阻断与超时问题)
 start_single_argo_tunnel() {
     local tid=$1
     local local_port=$2
@@ -31,7 +31,7 @@ Wants=network-online.target
 TimeoutStartSec=0
 Type=simple
 ExecStartPre=-/bin/rm -f $log_file
-ExecStart=/usr/local/bin/cloudflared tunnel --url http://127.0.0.1:$local_port --loglevel info --logfile $log_file
+ExecStart=/usr/local/bin/cloudflared tunnel --edge-ip-version auto --protocol http2 --no-autoupdate --no-tls-verify --url http://127.0.0.1:$local_port --loglevel info --logfile $log_file
 Restart=always
 RestartSec=5s
 
@@ -70,7 +70,7 @@ EOF
 
 add_argo() {
     print_separator
-    print_info "正在创建多端口独立 Argo 隧道组合 (443 / 8443 / 2053，多隧道独立防失效)..."
+    print_info "正在搭建 2026 最新双引擎 Argo 隧道组合 (VLESS轻量 + VMess-AEAD加密，双隧道独立防封)..."
     
     install_cloudflared
     
@@ -82,6 +82,7 @@ add_argo() {
     for i in 1 2 3; do
         systemctl stop "argo-tunnel-$i" >/dev/null 2>&1 || true
         systemctl disable "argo-tunnel-$i" >/dev/null 2>&1 || true
+        rm -f "/etc/systemd/system/argo-tunnel-$i.service"
     done
     
     # 删除旧的 Argo 节点数据
@@ -99,12 +100,10 @@ add_argo() {
         done <<< "$existing_nodes"
     fi
     
-    # 规划 3 个独立隧道：本地端口与外部 CDN 优选端口
-    local cdn_ports=(443 8443 2053)
+    # 分配 2 个独立本地端口 (8080: VLESS, 8081: VMess)
     local local_ports=()
     local base_port=8080
-    
-    for i in 0 1 2; do
+    for i in 0 1; do
         while ! check_port "$base_port"; do
             ((base_port++))
         done
@@ -112,12 +111,12 @@ add_argo() {
         ((base_port++))
     done
     
-    print_info "启动 3 条独立 Cloudflare Argo 隧道进程..."
-    for i in 0 1 2; do
-        local tid=$((i + 1))
-        local lport=${local_ports[$i]}
-        start_single_argo_tunnel "$tid" "$lport"
-    done
+    local port_vless=${local_ports[0]}
+    local port_vmess=${local_ports[1]}
+    
+    print_info "正在启动 2 条独立的 Cloudflare 隧道 (VLESS 与 VMess 各自独立)..."
+    start_single_argo_tunnel 1 "$port_vless"
+    start_single_argo_tunnel 2 "$port_vmess"
     
     # 启动后台守护更新器
     start_argo_updater_service
@@ -129,7 +128,7 @@ add_argo() {
         sleep 3
         domains=()
         local all_found=1
-        for i in 0 1 2; do
+        for i in 0 1; do
             local tid=$((i + 1))
             local log_file="/etc/node-manager/logs/argo-${tid}.log"
             local d=""
@@ -149,72 +148,102 @@ add_argo() {
         ((try++))
     done
     
-    local added_count=0
-    for i in 0 1 2; do
-        local tid=$((i + 1))
-        local cdn_port=${cdn_ports[$i]}
-        local lport=${local_ports[$i]}
-        local domain=${domains[$i]}
-        
-        # 如果当前未能成功抓取到域名，预设一个占位，后台 updater 会在几秒内自动抓取填补
-        if [[ -z "$domain" ]]; then
-            domain="waiting-tunnel-${tid}.trycloudflare.com"
-        fi
-        
-        local uuid
-        uuid=$(generate_uuid)
-        local path="/$(generate_random_string 8)"
-        local inbound_json
-        inbound_json=$(cat <<EOF
+    local domain_vless=${domains[0]}
+    local domain_vmess=${domains[1]}
+    [[ -z "$domain_vless" ]] && domain_vless="waiting-tunnel-1.trycloudflare.com"
+    [[ -z "$domain_vmess" ]] && domain_vmess="waiting-tunnel-2.trycloudflare.com"
+    
+    # 1. 注入 VLESS + WS 入站配置
+    local uuid_vless
+    uuid_vless=$(generate_uuid)
+    local path_vless="/$(generate_random_string 8)"
+    local inbound_vless
+    inbound_vless=$(cat <<EOF
 {
   "type": "vless",
-  "tag": "vless-argo-$lport",
+  "tag": "vless-argo-$port_vless",
   "listen": "127.0.0.1",
-  "listen_port": $lport,
+  "listen_port": $port_vless,
   "users": [
     {
-      "uuid": "$uuid"
+      "uuid": "$uuid_vless"
     }
   ],
   "transport": {
     "type": "ws",
-    "path": "$path"
+    "path": "$path_vless",
+    "max_early_data": 2560,
+    "early_data_header_name": "Sec-WebSocket-Protocol"
   }
 }
 EOF
 )
-        local node_id
-        node_id=$(generate_uuid)
-        local node_data
-        node_data=$(cat <<EOF
+    local node_vless_data
+    node_vless_data=$(cat <<EOF
 {
-  "id": "$node_id",
+  "id": "$(generate_uuid)",
   "type": "argo",
-  "tunnel_id": $tid,
-  "port": $lport,
-  "cdn_port": $cdn_port,
-  "uuid": "$uuid",
-  "domain": "$domain",
-  "path": "$path",
-  "inbound": $inbound_json
+  "sub_type": "vless",
+  "tunnel_id": 1,
+  "port": $port_vless,
+  "uuid": "$uuid_vless",
+  "domain": "$domain_vless",
+  "path": "$path_vless",
+  "inbound": $inbound_vless
 }
 EOF
 )
-        add_node "$node_data"
-        ((added_count++))
-    done
+    add_node "$node_vless_data"
     
-    print_ok "已成功创建 $added_count 个多端口独立 Argo 节点！"
+    # 2. 注入 VMess AEAD + WS 入站配置 (内层完整加密，彻底防止 Cloudflare WAF/CDN 检测)
+    local uuid_vmess
+    uuid_vmess=$(generate_uuid)
+    local path_vmess="/$(generate_random_string 8)"
+    local inbound_vmess
+    inbound_vmess=$(cat <<EOF
+{
+  "type": "vmess",
+  "tag": "vmess-argo-$port_vmess",
+  "listen": "127.0.0.1",
+  "listen_port": $port_vmess,
+  "users": [
+    {
+      "uuid": "$uuid_vmess",
+      "alterId": 0
+    }
+  ],
+  "transport": {
+    "type": "ws",
+    "path": "$path_vmess",
+    "max_early_data": 2560,
+    "early_data_header_name": "Sec-WebSocket-Protocol"
+  }
+}
+EOF
+)
+    local node_vmess_data
+    node_vmess_data=$(cat <<EOF
+{
+  "id": "$(generate_uuid)",
+  "type": "argo",
+  "sub_type": "vmess",
+  "tunnel_id": 2,
+  "port": $port_vmess,
+  "uuid": "$uuid_vmess",
+  "domain": "$domain_vmess",
+  "path": "$path_vmess",
+  "inbound": $inbound_vmess
+}
+EOF
+)
+    add_node "$node_vmess_data"
+    
+    print_ok "VLESS 与 VMess-AEAD 双协议 Argo 节点搭建完成！"
     rebuild_config
     
     print_separator
-    print_info "Argo 多端口独立节点配置概要 (优选域名: saas.sin.fan)："
-    for i in 0 1 2; do
-        local tid=$((i + 1))
-        local cdn_port=${cdn_ports[$i]}
-        local lport=${local_ports[$i]}
-        local domain=${domains[$i]}
-        echo -e "隧道 ${tid} [CDN端口 ${GREEN}${cdn_port}${PLAIN} -> 本地 ${lport}] | 临时域名: ${CYAN}${domain:-获取中}${PLAIN}"
-    done
+    print_info "Argo 双引擎独立节点配置概要："
+    echo -e "隧道 1 [VLESS + WS] | 临时域名: ${CYAN}${domain_vless}${PLAIN}"
+    echo -e "隧道 2 [VMess-AEAD + WS] | 临时域名: ${CYAN}${domain_vmess}${PLAIN}"
     print_separator
 }

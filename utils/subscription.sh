@@ -54,10 +54,27 @@ get_node_uri() {
         local uuid=$(echo "$node_json" | jq -r '.uuid')
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
-        local cdn_port=$(echo "$node_json" | jq -r '.cdn_port // 443')
-        local preferred_domain="saas.sin.fan"
+        local sub_type=$(echo "$node_json" | jq -r '.sub_type // "vless"')
+        local clean_cdn="ip.sb"
         
-        uri="vless://${uuid}@${preferred_domain}:${cdn_port}?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-${cdn_port}"
+        if [[ "$sub_type" == "vmess" ]]; then
+            # VMess 直连保底 (官方临时域名，永远不依赖第三方优选域名，100% 通)
+            local vmess_json_direct="{\"v\":\"2\",\"ps\":\"VMess-Argo-直连\",\"add\":\"${domain}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
+            local vmess_uri_direct="vmess://$(echo -n "$vmess_json_direct" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_direct" | base64 | tr -d '\r\n')"
+            
+            # VMess 优选CDN (搭配纯净 Anycast CDN 优选节点，内层 AEAD 加密防检测)
+            local vmess_json_cdn="{\"v\":\"2\",\"ps\":\"VMess-Argo-优选\",\"add\":\"${clean_cdn}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
+            local vmess_uri_cdn="vmess://$(echo -n "$vmess_json_cdn" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_cdn" | base64 | tr -d '\r\n')"
+            
+            uri="${vmess_uri_direct}"$'\n'"${vmess_uri_cdn}"
+        else
+            # VLESS 直连保底
+            local vless_uri_direct="vless://${uuid}@${domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-直连"
+            # VLESS 优选CDN
+            local vless_uri_cdn="vless://${uuid}@${clean_cdn}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-优选"
+            
+            uri="${vless_uri_direct}"$'\n'"${vless_uri_cdn}"
+        fi
     fi
     
     echo "$uri"
@@ -229,15 +246,64 @@ EOF
             local uuid=$(echo "$node" | jq -r '.uuid')
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
-            local port=$(echo "$node" | jq -r '.port')
-            local cdn_port=$(echo "$node" | jq -r '.cdn_port // 443')
-            local preferred_domain="saas.sin.fan"
-            local proxy_name="VLESS-Argo-${cdn_port}"
-            cat >> "$clash_file" <<EOF
-  - name: "$proxy_name"
+            local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
+            local clean_cdn="ip.sb"
+            
+            if [[ "$sub_type" == "vmess" ]]; then
+                cat >> "$clash_file" <<EOF
+  - name: "VMess-Argo-直连"
+    type: vmess
+    server: $domain
+    port: 443
+    uuid: $uuid
+    alterId: 0
+    cipher: auto
+    network: ws
+    tls: true
+    udp: true
+    servername: $domain
+    ws-opts:
+      path: "$path"
+      headers:
+        Host: $domain
+
+  - name: "VMess-Argo-优选"
+    type: vmess
+    server: $clean_cdn
+    port: 443
+    uuid: $uuid
+    alterId: 0
+    cipher: auto
+    network: ws
+    tls: true
+    udp: true
+    servername: $domain
+    ws-opts:
+      path: "$path"
+      headers:
+        Host: $domain
+EOF
+                proxy_names="${proxy_names}\n      - \"VMess-Argo-直连\"\n      - \"VMess-Argo-优选\""
+            else
+                cat >> "$clash_file" <<EOF
+  - name: "VLESS-Argo-直连"
     type: vless
-    server: $preferred_domain
-    port: $cdn_port
+    server: $domain
+    port: 443
+    uuid: $uuid
+    network: ws
+    tls: true
+    udp: true
+    servername: $domain
+    ws-opts:
+      path: "$path"
+      headers:
+        Host: $domain
+
+  - name: "VLESS-Argo-优选"
+    type: vless
+    server: $clean_cdn
+    port: 443
     uuid: $uuid
     network: ws
     tls: true
@@ -248,7 +314,8 @@ EOF
       headers:
         Host: $domain
 EOF
-            proxy_names="${proxy_names}\n      - \"$proxy_name\""
+                proxy_names="${proxy_names}\n      - \"VLESS-Argo-直连\"\n      - \"VLESS-Argo-优选\""
+            fi
         fi
     done <<< "$nodes"
     
