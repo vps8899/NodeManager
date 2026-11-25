@@ -6,6 +6,32 @@ source "$_SUB_DIR/../lib/common.sh"
 source "$_SUB_DIR/../utils/cert.sh"
 unset _SUB_DIR
 
+ARGO_CDN_FILE="/etc/node-manager/database/argo_cdn.txt"
+DEFAULT_ARGO_CDN="cf.090227.xyz"
+
+# 获取 Argo 优选域名或 IP (优先使用用户配置，默认 cf.090227.xyz 三网智能优选)
+get_argo_cdn_host() {
+    if [[ -f "$ARGO_CDN_FILE" ]]; then
+        local custom_cdn
+        custom_cdn=$(tr -d '[:space:]' < "$ARGO_CDN_FILE" 2>/dev/null)
+        if [[ -n "$custom_cdn" ]]; then
+            echo "$custom_cdn"
+            return
+        fi
+    fi
+    echo "$DEFAULT_ARGO_CDN"
+}
+
+# 为 URI 格式化主机地址 (IPv6 需加方括号)
+format_uri_host() {
+    local host=$1
+    if [[ "$host" == *:* && "$host" != \[*\] ]]; then
+        echo "[$host]"
+    else
+        echo "$host"
+    fi
+}
+
 get_node_uri() {
     local node_json=$1
     local type=$(echo "$node_json" | jq -r '.type')
@@ -55,14 +81,15 @@ get_node_uri() {
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
         local sub_type=$(echo "$node_json" | jq -r '.sub_type // "vless"')
-        local clean_cdn="ip.sb"
+        local clean_cdn=$(get_argo_cdn_host)
+        local clean_cdn_uri=$(format_uri_host "$clean_cdn")
         
         if [[ "$sub_type" == "vmess" ]]; then
             # VMess 直连保底 (官方临时域名，永远不依赖第三方优选域名，100% 通)
             local vmess_json_direct="{\"v\":\"2\",\"ps\":\"VMess-Argo-直连\",\"add\":\"${domain}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
             local vmess_uri_direct="vmess://$(echo -n "$vmess_json_direct" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_direct" | base64 | tr -d '\r\n')"
             
-            # VMess 优选CDN (搭配纯净 Anycast CDN 优选节点，内层 AEAD 加密防检测)
+            # VMess 优选CDN (搭配三网优选域名或自定义优选 IP，内层 AEAD 加密防检测)
             local vmess_json_cdn="{\"v\":\"2\",\"ps\":\"VMess-Argo-优选\",\"add\":\"${clean_cdn}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
             local vmess_uri_cdn="vmess://$(echo -n "$vmess_json_cdn" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_cdn" | base64 | tr -d '\r\n')"
             
@@ -71,7 +98,7 @@ get_node_uri() {
             # VLESS 直连保底
             local vless_uri_direct="vless://${uuid}@${domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-直连"
             # VLESS 优选CDN
-            local vless_uri_cdn="vless://${uuid}@${clean_cdn}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-优选"
+            local vless_uri_cdn="vless://${uuid}@${clean_cdn_uri}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-优选"
             
             uri="${vless_uri_direct}"$'\n'"${vless_uri_cdn}"
         fi
@@ -247,7 +274,7 @@ EOF
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
             local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
-            local clean_cdn="ip.sb"
+            local clean_cdn=$(get_argo_cdn_host)
             
             if [[ "$sub_type" == "vmess" ]]; then
                 cat >> "$clash_file" <<EOF
@@ -377,4 +404,57 @@ EOF
         
         print_separator
     fi
+}
+
+# 配置/切换 Argo 优选域名或自定义优选 IP
+configure_argo_cdn() {
+    local current_cdn
+    current_cdn=$(get_argo_cdn_host)
+    print_separator
+    echo -e "${CYAN}设置 Argo 优选域名 / 优选 IP (适配中国大陆三网加速)${PLAIN}"
+    echo -e "当前使用优选地址: ${GREEN}${current_cdn}${PLAIN}"
+    print_separator
+    echo -e " ${GREEN}1.${PLAIN} 三网综合优选: cf.090227.xyz (默认推荐，三网智能分流)"
+    echo -e " ${GREEN}2.${PLAIN} 中国电信优选: ct.090227.xyz (电信线路优化)"
+    echo -e " ${GREEN}3.${PLAIN} 中国联通优选: cu.877774.xyz (联通线路优化)"
+    echo -e " ${GREEN}4.${PLAIN} 中国移动优选: cmcc.877774.xyz (移动线路优化)"
+    echo -e " ${GREEN}5.${PLAIN} 备用三网优选: cloudflare.182682.xyz (社区动态优选)"
+    echo -e " ${GREEN}6.${PLAIN} 手动输入自定义域名或本地测速优选 IP (如 CloudflareST 测出的 IP)"
+    echo -e " ${GREEN}0.${PLAIN} 返回主菜单"
+    print_separator
+    
+    local cdn_choice
+    read -p "请选择 [0-6]: " cdn_choice
+    local new_cdn=""
+    case "$cdn_choice" in
+        1) new_cdn="cf.090227.xyz" ;;
+        2) new_cdn="ct.090227.xyz" ;;
+        3) new_cdn="cu.877774.xyz" ;;
+        4) new_cdn="cmcc.877774.xyz" ;;
+        5) new_cdn="cloudflare.182682.xyz" ;;
+        6)
+            read -p "请输入优选域名或优选 IPv4/IPv6 地址: " new_cdn
+            new_cdn=$(echo "$new_cdn" | tr -d '[:space:]')
+            ;;
+        0) return 0 ;;
+        *)
+            print_err "无效选择"
+            return 1
+            ;;
+    esac
+    
+    if [[ -z "$new_cdn" ]]; then
+        print_err "输入不能为空"
+        return 1
+    fi
+    if [[ ! "$new_cdn" =~ ^[a-zA-Z0-9._:-]+$ ]]; then
+        print_err "地址格式非法，只能包含字母、数字、点、横杠或冒号"
+        return 1
+    fi
+    
+    mkdir -p "$(dirname "$ARGO_CDN_FILE")"
+    echo "$new_cdn" > "$ARGO_CDN_FILE"
+    print_ok "Argo 优选地址已更新为: ${GREEN}${new_cdn}${PLAIN}"
+    print_info "正在重新生成订阅链接与 Clash 配置..."
+    show_all_nodes
 }

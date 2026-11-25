@@ -53,11 +53,12 @@ show_menu() {
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"
     echo -e " ${GREEN}9.${PLAIN} 为订阅链接申请 HTTPS 证书 (Let's Encrypt IP 证书)"
     echo -e " ${RED}10.${PLAIN} 卸载 Node Manager"
+    echo -e " ${GREEN}11.${PLAIN} 切换/自定义 Argo 优选域名或 IP (适配三网加速)"
     echo -e " ${GREEN}0.${PLAIN} 退出"
     print_separator
     
     local choice
-    read -p "请输入选项 [0-10]: " choice
+    read -p "请输入选项 [0-11]: " choice
     
     case "$choice" in
         1)
@@ -104,6 +105,10 @@ show_menu() {
             if prompt_confirm "确定要完全卸载 Node Manager 及其所有节点数据吗？" "N"; then
                 uninstall_singbox
             fi
+            read -p "按回车键继续..."
+            ;;
+        11)
+            configure_argo_cdn
             read -p "按回车键继续..."
             ;;
         0)
