@@ -6,30 +6,23 @@ source "$_SUB_DIR/../lib/common.sh"
 source "$_SUB_DIR/../utils/cert.sh"
 unset _SUB_DIR
 
-ARGO_CDN_FILE="/etc/node-manager/database/argo_cdn.txt"
-DEFAULT_ARGO_CDN="cf.090227.xyz"
+ARGO_ISP_ENTRIES=(
+    "电信优化:ct.386638.xyz"
+    "移动优化:cm.386638.xyz"
+    "联通优化:cu.386638.xyz"
+)
 
-# 获取 Argo 优选域名或 IP (优先使用用户配置，默认 cf.090227.xyz 三网智能优选)
-get_argo_cdn_host() {
-    if [[ -f "$ARGO_CDN_FILE" ]]; then
-        local custom_cdn
-        custom_cdn=$(tr -d '[:space:]' < "$ARGO_CDN_FILE" 2>/dev/null)
-        if [[ -n "$custom_cdn" ]]; then
-            echo "$custom_cdn"
-            return
-        fi
-    fi
-    echo "$DEFAULT_ARGO_CDN"
-}
-
-# 为 URI 格式化主机地址 (IPv6 需加方括号)
-format_uri_host() {
-    local host=$1
-    if [[ "$host" == *:* && "$host" != \[*\] ]]; then
-        echo "[$host]"
-    else
-        echo "$host"
-    fi
+# 构造单个 VMess-Argo URI
+build_vmess_uri() {
+    local ps=$1
+    local add=$2
+    local uuid=$3
+    local domain=$4
+    local path=$5
+    local json_str="{\"v\":\"2\",\"ps\":\"${ps}\",\"add\":\"${add}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
+    local b64
+    b64=$(echo -n "$json_str" | base64 -w 0 2>/dev/null || echo -n "$json_str" | base64 | tr -d '\r\n')
+    echo "vmess://${b64}"
 }
 
 get_node_uri() {
@@ -46,7 +39,6 @@ get_node_uri() {
     if [[ "$type" == "vless-reality" ]]; then
         local uuid=$(echo "$node_json" | jq -r '.uuid')
         local port=$(echo "$node_json" | jq -r '.port')
-        local dest=$(echo "$node_json" | jq -r '.dest')
         local server_name=$(echo "$node_json" | jq -r '.server_names[0]')
         local public_key=$(echo "$node_json" | jq -r '.public_key')
         local short_id=$(echo "$node_json" | jq -r '.short_id')
@@ -81,27 +73,24 @@ get_node_uri() {
         local domain=$(echo "$node_json" | jq -r '.domain')
         local path=$(echo "$node_json" | jq -r '.path')
         local sub_type=$(echo "$node_json" | jq -r '.sub_type // "vless"')
-        local clean_cdn=$(get_argo_cdn_host)
-        local clean_cdn_uri=$(format_uri_host "$clean_cdn")
         
-        if [[ "$sub_type" == "vmess" ]]; then
-            # VMess 直连保底 (官方临时域名，永远不依赖第三方优选域名，100% 通)
-            local vmess_json_direct="{\"v\":\"2\",\"ps\":\"VMess-Argo-直连\",\"add\":\"${domain}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
-            local vmess_uri_direct="vmess://$(echo -n "$vmess_json_direct" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_direct" | base64 | tr -d '\r\n')"
-            
-            # VMess 优选CDN (搭配三网优选域名或自定义优选 IP，内层 AEAD 加密防检测)
-            local vmess_json_cdn="{\"v\":\"2\",\"ps\":\"VMess-Argo-优选\",\"add\":\"${clean_cdn}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
-            local vmess_uri_cdn="vmess://$(echo -n "$vmess_json_cdn" | base64 -w 0 2>/dev/null || echo -n "$vmess_json_cdn" | base64 | tr -d '\r\n')"
-            
-            uri="${vmess_uri_direct}"$'\n'"${vmess_uri_cdn}"
-        else
-            # VLESS 直连保底
-            local vless_uri_direct="vless://${uuid}@${domain}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-直连"
-            # VLESS 优选CDN
-            local vless_uri_cdn="vless://${uuid}@${clean_cdn_uri}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-优选"
-            
-            uri="${vless_uri_direct}"$'\n'"${vless_uri_cdn}"
-        fi
+        local lines=""
+        for entry in "${ARGO_ISP_ENTRIES[@]}"; do
+            local label="${entry%%:*}"
+            local cdn_host="${entry#*:}"
+            local line_uri=""
+            if [[ "$sub_type" == "vmess" ]]; then
+                line_uri=$(build_vmess_uri "VMESS-Argo-${label}" "$cdn_host" "$uuid" "$domain" "$path")
+            else
+                line_uri="vless://${uuid}@${cdn_host}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-${label}"
+            fi
+            if [[ -z "$lines" ]]; then
+                lines="$line_uri"
+            else
+                lines="${lines}"$'\n'"${line_uri}"
+            fi
+        done
+        uri="$lines"
     fi
     
     echo "$uri"
@@ -137,7 +126,9 @@ EOF
         cert_arg="$cert_dir/cert.pem $cert_dir/key.pem"
     fi
     
-    cat > /etc/systemd/system/node-manager-sub.service <<EOF
+    local service_file="/etc/systemd/system/node-manager-sub.service"
+    local desired_unit
+    desired_unit=$(cat <<EOF
 [Unit]
 Description=Node Manager Subscription Server
 After=network.target
@@ -151,10 +142,20 @@ RestartSec=5s
 [Install]
 WantedBy=multi-user.target
 EOF
+)
+    local need_restart=0
+    if [[ ! -f "$service_file" ]] || [[ "$(cat "$service_file" 2>/dev/null)" != "$desired_unit" ]]; then
+        printf '%s\n' "$desired_unit" > "$service_file"
+        systemctl daemon-reload
+        systemctl enable node-manager-sub >/dev/null 2>&1
+        need_restart=1
+    elif ! systemctl is-active node-manager-sub >/dev/null 2>&1; then
+        need_restart=1
+    fi
     
-    systemctl daemon-reload
-    systemctl enable node-manager-sub >/dev/null 2>&1
-    systemctl restart node-manager-sub >/dev/null 2>&1
+    if [[ $need_restart -eq 1 ]]; then
+        systemctl restart node-manager-sub >/dev/null 2>&1
+    fi
 }
 
 show_all_nodes() {
@@ -178,10 +179,12 @@ show_all_nodes() {
         fi
     done <<< "$nodes"
     
-    # 生成 Clash YAML
+    # 原子写入 Clash YAML，防止读取到半成品文件
     local clash_file="/etc/node-manager/output/clash.yaml"
     mkdir -p "$(dirname "$clash_file")"
-    cat > "$clash_file" <<EOF
+    local clash_tmp
+    clash_tmp=$(mktemp -p "$(dirname "$clash_file")")
+    cat > "$clash_tmp" <<EOF
 port: 7890
 socks-port: 7891
 allow-lan: true
@@ -215,7 +218,7 @@ EOF
             local server_name=$(echo "$node" | jq -r '.server_names[0]')
             local public_key=$(echo "$node" | jq -r '.public_key')
             local short_id=$(echo "$node" | jq -r '.short_id')
-            cat >> "$clash_file" <<EOF
+            cat >> "$clash_tmp" <<EOF
   - name: "VLESS-Reality-$port"
     type: vless
     server: $ip
@@ -236,7 +239,7 @@ EOF
             local password=$(echo "$node" | jq -r '.password')
             local port=$(echo "$node" | jq -r '.port')
             local cert_pin=$(get_self_signed_cert_sha256)
-            cat >> "$clash_file" <<EOF
+            cat >> "$clash_tmp" <<EOF
   - name: "Hysteria2-$port"
     type: hysteria2
     server: $ip
@@ -246,7 +249,7 @@ EOF
     skip-cert-verify: true
 EOF
             if [[ -n "$cert_pin" ]]; then
-                echo "    ca-fingerprint: $cert_pin" >> "$clash_file"
+                echo "    ca-fingerprint: $cert_pin" >> "$clash_tmp"
             fi
             proxy_names="${proxy_names}\n      - \"Hysteria2-$port\""
         elif [[ "$type" == "tuic" ]]; then
@@ -254,7 +257,7 @@ EOF
             local password=$(echo "$node" | jq -r '.password')
             local port=$(echo "$node" | jq -r '.port')
             local cert_pin=$(get_self_signed_cert_sha256)
-            cat >> "$clash_file" <<EOF
+            cat >> "$clash_tmp" <<EOF
   - name: "TUIC-$port"
     type: tuic
     server: $ip
@@ -266,7 +269,7 @@ EOF
     skip-cert-verify: true
 EOF
             if [[ -n "$cert_pin" ]]; then
-                echo "    ca-fingerprint: $cert_pin" >> "$clash_file"
+                echo "    ca-fingerprint: $cert_pin" >> "$clash_tmp"
             fi
             proxy_names="${proxy_names}\n      - \"TUIC-$port\""
         elif [[ "$type" == "argo" ]]; then
@@ -274,29 +277,16 @@ EOF
             local domain=$(echo "$node" | jq -r '.domain')
             local path=$(echo "$node" | jq -r '.path')
             local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
-            local clean_cdn=$(get_argo_cdn_host)
             
-            if [[ "$sub_type" == "vmess" ]]; then
-                cat >> "$clash_file" <<EOF
-  - name: "VMess-Argo-直连"
+            for entry in "${ARGO_ISP_ENTRIES[@]}"; do
+                local label="${entry%%:*}"
+                local cdn_host="${entry#*:}"
+                if [[ "$sub_type" == "vmess" ]]; then
+                    local pname="VMESS-Argo-${label}"
+                    cat >> "$clash_tmp" <<EOF
+  - name: "$pname"
     type: vmess
-    server: $domain
-    port: 443
-    uuid: $uuid
-    alterId: 0
-    cipher: auto
-    network: ws
-    tls: true
-    udp: true
-    servername: $domain
-    ws-opts:
-      path: "$path"
-      headers:
-        Host: $domain
-
-  - name: "VMess-Argo-优选"
-    type: vmess
-    server: $clean_cdn
+    server: $cdn_host
     port: 443
     uuid: $uuid
     alterId: 0
@@ -310,26 +300,13 @@ EOF
       headers:
         Host: $domain
 EOF
-                proxy_names="${proxy_names}\n      - \"VMess-Argo-直连\"\n      - \"VMess-Argo-优选\""
-            else
-                cat >> "$clash_file" <<EOF
-  - name: "VLESS-Argo-直连"
+                    proxy_names="${proxy_names}\n      - \"$pname\""
+                else
+                    local pname="VLESS-Argo-${label}"
+                    cat >> "$clash_tmp" <<EOF
+  - name: "$pname"
     type: vless
-    server: $domain
-    port: 443
-    uuid: $uuid
-    network: ws
-    tls: true
-    udp: true
-    servername: $domain
-    ws-opts:
-      path: "$path"
-      headers:
-        Host: $domain
-
-  - name: "VLESS-Argo-优选"
-    type: vless
-    server: $clean_cdn
+    server: $cdn_host
     port: 443
     uuid: $uuid
     network: ws
@@ -341,12 +318,13 @@ EOF
       headers:
         Host: $domain
 EOF
-                proxy_names="${proxy_names}\n      - \"VLESS-Argo-直连\"\n      - \"VLESS-Argo-优选\""
-            fi
+                    proxy_names="${proxy_names}\n      - \"$pname\""
+                fi
+            done
         fi
     done <<< "$nodes"
     
-    cat >> "$clash_file" <<EOF
+    cat >> "$clash_tmp" <<EOF
 
 proxy-groups:
   - name: PROXY
@@ -359,20 +337,25 @@ rules:
   - GEOIP,CN,DIRECT
   - MATCH,PROXY
 EOF
+    mv "$clash_tmp" "$clash_file"
     
     print_separator
     
-    # 生成 Base64 订阅
-    local base64_sub=$(echo -ne "$sub_content" | base64 -w 0)
+    # 原子写入 Base64 订阅
+    local base64_sub
+    base64_sub=$(echo -ne "$sub_content" | base64 -w 0 2>/dev/null || echo -ne "$sub_content" | base64 | tr -d '\r\n')
     local sub_file="/etc/node-manager/output/sub.txt"
     mkdir -p "$(dirname "$sub_file")"
-    echo "$base64_sub" > "$sub_file"
+    local sub_tmp
+    sub_tmp=$(mktemp -p "$(dirname "$sub_file")")
+    echo "$base64_sub" > "$sub_tmp"
+    mv "$sub_tmp" "$sub_file"
     
     print_info "订阅内容已保存至: $sub_file"
     echo -e "Base64 格式订阅 (可直接导入客户端):\n${YELLOW}${base64_sub}${PLAIN}"
     print_separator
     
-    # 启动/刷新订阅分发服务
+    # 确保订阅分发服务在线 (配置未变化时不重复重启)
     setup_subscription_server
     local sub_info_file="/etc/node-manager/database/sub_info.json"
     if [[ -f "$sub_info_file" ]]; then
@@ -404,57 +387,4 @@ EOF
         
         print_separator
     fi
-}
-
-# 配置/切换 Argo 优选域名或自定义优选 IP
-configure_argo_cdn() {
-    local current_cdn
-    current_cdn=$(get_argo_cdn_host)
-    print_separator
-    echo -e "${CYAN}设置 Argo 优选域名 / 优选 IP (适配中国大陆三网加速)${PLAIN}"
-    echo -e "当前使用优选地址: ${GREEN}${current_cdn}${PLAIN}"
-    print_separator
-    echo -e " ${GREEN}1.${PLAIN} 三网综合优选: cf.090227.xyz (默认推荐，三网智能分流)"
-    echo -e " ${GREEN}2.${PLAIN} 中国电信优选: ct.090227.xyz (电信线路优化)"
-    echo -e " ${GREEN}3.${PLAIN} 中国联通优选: cu.877774.xyz (联通线路优化)"
-    echo -e " ${GREEN}4.${PLAIN} 中国移动优选: cmcc.877774.xyz (移动线路优化)"
-    echo -e " ${GREEN}5.${PLAIN} 备用三网优选: cloudflare.182682.xyz (社区动态优选)"
-    echo -e " ${GREEN}6.${PLAIN} 手动输入自定义域名或本地测速优选 IP (如 CloudflareST 测出的 IP)"
-    echo -e " ${GREEN}0.${PLAIN} 返回主菜单"
-    print_separator
-    
-    local cdn_choice
-    read -p "请选择 [0-6]: " cdn_choice
-    local new_cdn=""
-    case "$cdn_choice" in
-        1) new_cdn="cf.090227.xyz" ;;
-        2) new_cdn="ct.090227.xyz" ;;
-        3) new_cdn="cu.877774.xyz" ;;
-        4) new_cdn="cmcc.877774.xyz" ;;
-        5) new_cdn="cloudflare.182682.xyz" ;;
-        6)
-            read -p "请输入优选域名或优选 IPv4/IPv6 地址: " new_cdn
-            new_cdn=$(echo "$new_cdn" | tr -d '[:space:]')
-            ;;
-        0) return 0 ;;
-        *)
-            print_err "无效选择"
-            return 1
-            ;;
-    esac
-    
-    if [[ -z "$new_cdn" ]]; then
-        print_err "输入不能为空"
-        return 1
-    fi
-    if [[ ! "$new_cdn" =~ ^[a-zA-Z0-9._:-]+$ ]]; then
-        print_err "地址格式非法，只能包含字母、数字、点、横杠或冒号"
-        return 1
-    fi
-    
-    mkdir -p "$(dirname "$ARGO_CDN_FILE")"
-    echo "$new_cdn" > "$ARGO_CDN_FILE"
-    print_ok "Argo 优选地址已更新为: ${GREEN}${new_cdn}${PLAIN}"
-    print_info "正在重新生成订阅链接与 Clash 配置..."
-    show_all_nodes
 }

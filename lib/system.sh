@@ -65,6 +65,7 @@ install_dependencies() {
             fi
         fi
     done
+    systemctl enable --now cron >/dev/null 2>&1 || systemctl enable --now crond >/dev/null 2>&1 || true
     print_ok "依赖项检查完成。"
 }
 
