@@ -19,7 +19,7 @@ build_vmess_uri() {
     local uuid=$3
     local domain=$4
     local path=$5
-    local json_str="{\"v\":\"2\",\"ps\":\"${ps}\",\"add\":\"${add}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"\"}"
+    local json_str="{\"v\":\"2\",\"ps\":\"${ps}\",\"add\":\"${add}\",\"port\":\"443\",\"id\":\"${uuid}\",\"aid\":\"0\",\"scy\":\"auto\",\"net\":\"ws\",\"type\":\"none\",\"host\":\"${domain}\",\"path\":\"${path}\",\"tls\":\"tls\",\"sni\":\"${domain}\",\"alpn\":\"http/1.1\",\"fp\":\"chrome\"}"
     local b64
     b64=$(echo -n "$json_str" | base64 -w 0 2>/dev/null || echo -n "$json_str" | base64 | tr -d '\r\n')
     echo "vmess://${b64}"
@@ -82,7 +82,7 @@ get_node_uri() {
             if [[ "$sub_type" == "vmess" ]]; then
                 line_uri=$(build_vmess_uri "VMESS-Argo-${label}" "$cdn_host" "$uuid" "$domain" "$path")
             else
-                line_uri="vless://${uuid}@${cdn_host}:443?encryption=none&security=tls&sni=${domain}&type=ws&host=${domain}&path=${path}#VLESS-Argo-${label}"
+                line_uri="vless://${uuid}@${cdn_host}:443?encryption=none&security=tls&sni=${domain}&fp=chrome&alpn=http%2F1.1&type=ws&host=${domain}&path=${path}#VLESS-Argo-${label}"
             fi
             if [[ -z "$lines" ]]; then
                 lines="$line_uri"
@@ -295,6 +295,9 @@ EOF
     tls: true
     udp: true
     servername: $domain
+    alpn:
+      - http/1.1
+    client-fingerprint: chrome
     ws-opts:
       path: "$path"
       headers:
@@ -313,6 +316,9 @@ EOF
     tls: true
     udp: true
     servername: $domain
+    alpn:
+      - http/1.1
+    client-fingerprint: chrome
     ws-opts:
       path: "$path"
       headers:
