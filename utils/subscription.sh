@@ -2,8 +2,12 @@
 # subscription.sh - 订阅与节点分享链接生成
 
 _SUB_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source "$_SUB_DIR/../lib/common.sh"
-source "$_SUB_DIR/../utils/cert.sh"
+declare -F print_info >/dev/null 2>&1 || source "$_SUB_DIR/../lib/ui.sh"
+declare -F get_ipv4 >/dev/null 2>&1 || source "$_SUB_DIR/../lib/system.sh"
+declare -F generate_random_port >/dev/null 2>&1 || source "$_SUB_DIR/../lib/common.sh"
+declare -F get_all_nodes >/dev/null 2>&1 || source "$_SUB_DIR/../lib/config.sh"
+declare -F open_port >/dev/null 2>&1 || source "$_SUB_DIR/../utils/firewall.sh"
+declare -F get_self_signed_cert_sha256 >/dev/null 2>&1 || source "$_SUB_DIR/../utils/cert.sh"
 unset _SUB_DIR
 
 ARGO_ISP_ENTRIES=(
