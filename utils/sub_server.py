@@ -17,10 +17,7 @@ CLASH_FILE_PATH = "/etc/node-manager/output/clash.yaml"
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    def setup(self):
-        # 防止恶意扫描或半开连接无限阻塞单个处理线程
-        self.connection.settimeout(15)
-        super().setup()
+    timeout = 15
 
     def do_GET(self):
         req_path = urllib.parse.urlparse(self.path).path.rstrip("/")
@@ -54,6 +51,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 class ReusableThreadingHTTPServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = True
     daemon_threads = True
+    ssl_context = None
+
+    def process_request_thread(self, request, client_address):
+        try:
+            request.settimeout(15)
+            if self.ssl_context is not None:
+                request = self.ssl_context.wrap_socket(request, server_side=True)
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
 
 
 try:
@@ -61,7 +70,7 @@ try:
         if CERT_PATH and KEY_PATH and os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.load_cert_chain(CERT_PATH, KEY_PATH)
-            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+            httpd.ssl_context = context
             print(f"Serving HTTPS on port {PORT}...")
         else:
             print(f"Serving HTTP on port {PORT}...")
