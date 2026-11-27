@@ -29,6 +29,22 @@ build_vmess_uri() {
     echo "vmess://${b64}"
 }
 
+# 构造单条 Argo 节点 URI（按运营商优选入口输出）
+build_argo_uri_for_entry() {
+    local sub_type=$1
+    local uuid=$2
+    local domain=$3
+    local path=$4
+    local label=$5
+    local cdn_host=$6
+
+    if [[ "$sub_type" == "vmess" ]]; then
+        build_vmess_uri "VMESS-Argo-${label}" "$cdn_host" "$uuid" "$domain" "$path"
+    else
+        echo "vless://${uuid}@${cdn_host}:443?encryption=none&security=tls&sni=${domain}&fp=chrome&alpn=http%2F1.1&type=ws&host=${domain}&path=${path}#VLESS-Argo-${label}"
+    fi
+}
+
 get_node_uri() {
     local node_json=$1
     local type=$(echo "$node_json" | jq -r '.type')
@@ -47,7 +63,7 @@ get_node_uri() {
         local public_key=$(echo "$node_json" | jq -r '.public_key')
         local short_id=$(echo "$node_json" | jq -r '.short_id')
         
-        uri="vless://${uuid}@${ip}:${port}?security=reality&encryption=none&pbk=${public_key}&fp=ios&type=tcp&flow=xtls-rprx-vision&sni=${server_name}&sid=${short_id}#VLESS-Reality"
+        uri="vless://${uuid}@${ip}:${port}?security=reality&encryption=none&pbk=${public_key}&fp=ios&type=tcp&flow=xtls-rprx-vision&sni=${server_name}&sid=${short_id}#VLESS-Reality-适合优化线路"
     
     elif [[ "$type" == "hysteria2" ]]; then
         local password=$(echo "$node_json" | jq -r '.password')
@@ -82,12 +98,8 @@ get_node_uri() {
         for entry in "${ARGO_ISP_ENTRIES[@]}"; do
             local label="${entry%%:*}"
             local cdn_host="${entry#*:}"
-            local line_uri=""
-            if [[ "$sub_type" == "vmess" ]]; then
-                line_uri=$(build_vmess_uri "VMESS-Argo-${label}" "$cdn_host" "$uuid" "$domain" "$path")
-            else
-                line_uri="vless://${uuid}@${cdn_host}:443?encryption=none&security=tls&sni=${domain}&fp=chrome&alpn=http%2F1.1&type=ws&host=${domain}&path=${path}#VLESS-Argo-${label}"
-            fi
+            local line_uri
+            line_uri=$(build_argo_uri_for_entry "$sub_type" "$uuid" "$domain" "$path" "$label" "$cdn_host")
             if [[ -z "$lines" ]]; then
                 lines="$line_uri"
             else
@@ -174,14 +186,48 @@ show_all_nodes() {
     echo ""
     
     local sub_content=""
+    local argo_vless_nodes=()
+    local argo_vmess_nodes=()
     
     while read -r node; do
+        [[ -z "$node" ]] && continue
+        local ntype=$(echo "$node" | jq -r '.type')
+        if [[ "$ntype" == "argo" ]]; then
+            local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
+            if [[ "$sub_type" == "vmess" ]]; then
+                argo_vmess_nodes+=("$node")
+            else
+                argo_vless_nodes+=("$node")
+            fi
+            continue
+        fi
         local uri=$(get_node_uri "$node")
         if [[ -n "$uri" ]]; then
             echo -e "${GREEN}${uri}${PLAIN}"
             sub_content="${sub_content}${uri}\n"
         fi
     done <<< "$nodes"
+    
+    # Argo 按运营商分组排序（电信两个、移动两个、联通两个排在一起）
+    local ordered_argo_nodes=("${argo_vless_nodes[@]}" "${argo_vmess_nodes[@]}")
+    if [[ ${#ordered_argo_nodes[@]} -gt 0 ]]; then
+        for entry in "${ARGO_ISP_ENTRIES[@]}"; do
+            local label="${entry%%:*}"
+            local cdn_host="${entry#*:}"
+            for node in "${ordered_argo_nodes[@]}"; do
+                local uuid=$(echo "$node" | jq -r '.uuid')
+                local domain=$(echo "$node" | jq -r '.domain')
+                local path=$(echo "$node" | jq -r '.path')
+                local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
+                local uri
+                uri=$(build_argo_uri_for_entry "$sub_type" "$uuid" "$domain" "$path" "$label" "$cdn_host")
+                if [[ -n "$uri" ]]; then
+                    echo -e "${GREEN}${uri}${PLAIN}"
+                    sub_content="${sub_content}${uri}\n"
+                fi
+            done
+        done
+    fi
     
     # 原子写入 Clash YAML，防止读取到半成品文件
     local clash_file="/etc/node-manager/output/clash.yaml"
@@ -223,7 +269,7 @@ EOF
             local public_key=$(echo "$node" | jq -r '.public_key')
             local short_id=$(echo "$node" | jq -r '.short_id')
             cat >> "$clash_tmp" <<EOF
-  - name: "VLESS-Reality-$port"
+  - name: "VLESS-Reality-适合优化线路-$port"
     type: vless
     server: $ip
     port: $port
@@ -238,7 +284,7 @@ EOF
       public-key: $public_key
       short-id: $short_id
 EOF
-            proxy_names="${proxy_names}\n      - \"VLESS-Reality-$port\""
+            proxy_names="${proxy_names}\n      - \"VLESS-Reality-适合优化线路-$port\""
         elif [[ "$type" == "hysteria2" ]]; then
             local password=$(echo "$node" | jq -r '.password')
             local port=$(echo "$node" | jq -r '.port')
@@ -276,15 +322,19 @@ EOF
                 echo "    ca-fingerprint: $cert_pin" >> "$clash_tmp"
             fi
             proxy_names="${proxy_names}\n      - \"TUIC-$port\""
-        elif [[ "$type" == "argo" ]]; then
-            local uuid=$(echo "$node" | jq -r '.uuid')
-            local domain=$(echo "$node" | jq -r '.domain')
-            local path=$(echo "$node" | jq -r '.path')
-            local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
-            
-            for entry in "${ARGO_ISP_ENTRIES[@]}"; do
-                local label="${entry%%:*}"
-                local cdn_host="${entry#*:}"
+        fi
+    done <<< "$nodes"
+    
+    # Clash YAML 同步按运营商分组输出 Argo 节点
+    if [[ ${#ordered_argo_nodes[@]} -gt 0 ]]; then
+        for entry in "${ARGO_ISP_ENTRIES[@]}"; do
+            local label="${entry%%:*}"
+            local cdn_host="${entry#*:}"
+            for node in "${ordered_argo_nodes[@]}"; do
+                local uuid=$(echo "$node" | jq -r '.uuid')
+                local domain=$(echo "$node" | jq -r '.domain')
+                local path=$(echo "$node" | jq -r '.path')
+                local sub_type=$(echo "$node" | jq -r '.sub_type // "vless"')
                 if [[ "$sub_type" == "vmess" ]]; then
                     local pname="VMESS-Argo-${label}"
                     cat >> "$clash_tmp" <<EOF
@@ -331,8 +381,8 @@ EOF
                     proxy_names="${proxy_names}\n      - \"$pname\""
                 fi
             done
-        fi
-    done <<< "$nodes"
+        done
+    fi
     
     cat >> "$clash_tmp" <<EOF
 
