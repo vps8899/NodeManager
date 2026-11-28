@@ -24,6 +24,8 @@ add_hysteria2() {
   "tag": "hy2-in-$port",
   "listen": "::",
   "listen_port": $port,
+  "sniff": true,
+  "sniff_override_destination": true,
   "users": [
     {
       "password": "$password"

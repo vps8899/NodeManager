@@ -24,6 +24,8 @@ add_tuic() {
   "tag": "tuic-in-$port",
   "listen": "::",
   "listen_port": $port,
+  "sniff": true,
+  "sniff_override_destination": true,
   "users": [
     {
       "uuid": "$uuid",

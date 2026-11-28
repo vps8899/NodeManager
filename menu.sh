@@ -15,6 +15,7 @@ source "$ROOT_DIR/lib/config.sh"
 source "$ROOT_DIR/utils/firewall.sh"
 source "$ROOT_DIR/utils/cert.sh"
 source "$ROOT_DIR/utils/subscription.sh"
+source "$ROOT_DIR/utils/warp.sh"
 
 # 引入协议模块
 source "$ROOT_DIR/protocols/core_singbox.sh"
@@ -52,12 +53,13 @@ show_menu() {
     echo -e " ${GREEN}7.${PLAIN} 重载 Sing-box 服务"
     echo -e " ${GREEN}8.${PLAIN} 查看 Sing-box 日志"
     echo -e " ${GREEN}9.${PLAIN} 为订阅链接申请 HTTPS 证书 (Let's Encrypt IP 证书)"
-    echo -e " ${RED}10.${PLAIN} 卸载 Node Manager"
+    echo -e " ${GREEN}10.${PLAIN} WARP 解锁 Google / Gemini 管理 (防送中 + 自动巡检)"
+    echo -e " ${RED}11.${PLAIN} 卸载 Node Manager"
     echo -e " ${GREEN}0.${PLAIN} 退出"
     print_separator
     
     local choice
-    read -p "请输入选项 [0-10]: " choice
+    read -p "请输入选项 [0-11]: " choice
     
     case "$choice" in
         1)
@@ -101,6 +103,9 @@ show_menu() {
             read -p "按回车键继续..."
             ;;
         10)
+            warp_menu
+            ;;
+        11)
             if prompt_confirm "确定要完全卸载 Node Manager 及其所有节点数据吗？" "N"; then
                 uninstall_singbox
             fi

@@ -2,7 +2,7 @@
 # install.sh - NodeManager 在线安装/升级脚本
 
 REPO_URL="https://github.com/vps8899/NodeManager"
-BRANCH="main"
+BRANCH="${1:-${NM_BRANCH:-main}}"
 INSTALL_DIR="/usr/local/NodeManager"
 
 # 检查 root 权限
@@ -26,19 +26,21 @@ fi
 
 # 拉取最新代码
 if [[ -d "$INSTALL_DIR" ]]; then
-    echo -e "\033[0;34m[INFO]\033[0m 发现旧版本，正在拉取最新代码..."
+    echo -e "\033[0;34m[INFO]\033[0m 发现旧版本，正在拉取最新代码 (分支: $BRANCH)..."
     cd "$INSTALL_DIR" || exit 1
     git fetch --all
-    git reset --hard origin/$BRANCH
-    git pull origin $BRANCH
+    git checkout -B "$BRANCH" "origin/$BRANCH"
+    git reset --hard "origin/$BRANCH"
 else
-    echo -e "\033[0;34m[INFO]\033[0m 正在克隆项目代码..."
-    git clone -b $BRANCH "$REPO_URL.git" "$INSTALL_DIR"
+    echo -e "\033[0;34m[INFO]\033[0m 正在克隆项目代码 (分支: $BRANCH)..."
+    git clone -b "$BRANCH" "$REPO_URL.git" "$INSTALL_DIR"
 fi
 
 # 赋予执行权限
 chmod +x "$INSTALL_DIR/menu.sh"
 chmod +x "$INSTALL_DIR/install.sh"
+chmod +x "$INSTALL_DIR/utils/warp.sh"
+chmod +x "$INSTALL_DIR/utils/argo_updater.sh"
 
 # 创建全局软链接
 ln -sf "$INSTALL_DIR/menu.sh" "/usr/local/bin/node-manager"
@@ -57,6 +59,9 @@ if [[ -f /etc/systemd/system/node-manager-argo-updater.service ]]; then
 fi
 if [[ -f /etc/systemd/system/node-manager-sub.service ]]; then
     systemctl restart node-manager-sub >/dev/null 2>&1 || true
+fi
+if [[ -f /etc/systemd/system/node-manager-warp-checker.timer ]]; then
+    systemctl restart node-manager-warp-checker.timer >/dev/null 2>&1 || true
 fi
 
 echo -e "\033[0;32m[OK]\033[0m 安装完成！"

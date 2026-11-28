@@ -164,6 +164,8 @@ add_argo() {
   "tag": "vless-argo-$port_vless",
   "listen": "127.0.0.1",
   "listen_port": $port_vless,
+  "sniff": true,
+  "sniff_override_destination": true,
   "users": [
     {
       "uuid": "$uuid_vless"
@@ -206,6 +208,8 @@ EOF
   "tag": "vmess-argo-$port_vmess",
   "listen": "127.0.0.1",
   "listen_port": $port_vmess,
+  "sniff": true,
+  "sniff_override_destination": true,
   "users": [
     {
       "uuid": "$uuid_vmess",
