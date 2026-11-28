@@ -114,7 +114,7 @@ check_time_sync_hint() {
     fi
 }
 
-# 校验单个 .srs 文件是否为合法非空二进制文件 (非 HTML 报错页)
+# 校验单个 .srs 文件是否为合法非空二进制文件且与当前 sing-box 版本兼容
 is_valid_srs_file() {
     local file=$1
     if [[ ! -s "$file" ]]; then
@@ -129,6 +129,13 @@ is_valid_srs_file() {
     head_chars=$(head -c 16 "$file" 2>/dev/null | tr -d '\0')
     if [[ "$head_chars" == *"<html"* || "$head_chars" == *"<!DOC"* || "$head_chars" == *"404:"* ]]; then
         return 1
+    fi
+    if [[ -x "${SB_BIN:-/usr/local/bin/sing-box}" ]]; then
+        local chk_out
+        chk_out=$("${SB_BIN:-/usr/local/bin/sing-box}" rule-set match -f binary "$file" "gemini.google.com" 2>&1 || true)
+        if [[ "$chk_out" == *"FATAL"* || "$chk_out" == *"unsupported version"* ]]; then
+            return 1
+        fi
     fi
     return 0
 }
@@ -149,9 +156,9 @@ download_warp_rulesets() {
         "https://ghproxy.net/https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google.srs"
     )
     local urls_gemini=(
-        "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google-gemini.srs"
-        "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/google-gemini.srs"
-        "https://ghproxy.net/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/google-gemini.srs"
+        "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google-gemini.srs"
+        "https://testingcf.jsdelivr.net/gh/SagerNet/sing-geosite@rule-set/geosite-google-gemini.srs"
+        "https://ghproxy.net/https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google-gemini.srs"
     )
 
     local ok_count=0
@@ -413,8 +420,16 @@ apply_and_test_warp_candidate() {
 
     update_warp_conf_fields ".enabled = true | .endpoint_ip = \"$ep_ip\" | .endpoint_port = $ep_port | .stack = \"$stack\""
     rebuild_config >/dev/null 2>&1
-    sleep 2
-    check_warp_health 1
+    sleep 3
+    local rc=0
+    check_warp_health 1 || rc=$?
+    # 新注册密钥或刚建连时 Cloudflare 边缘生效偶有 3-6 秒延迟，隧道未通时补测一次
+    if [[ $rc -eq 2 ]]; then
+        sleep 5
+        rc=0
+        check_warp_health 1 || rc=$?
+    fi
+    return $rc
 }
 
 # 智能寻找可用且未送中的 WARP 出口 (先切栈 -> 再轮换 Endpoint -> 必要时换号)
@@ -485,6 +500,7 @@ select_best_warp_config() {
         np_v6=$(echo "$new_acct" | jq -r '.v6')
         np_res=$(echo "$new_acct" | jq -c '.reserved')
         update_warp_conf_fields ".private_key = \"$np_priv\" | .public_key = \"$np_pub\" | .peer_public_key = \"$np_peer\" | .v4 = \"$np_v4\" | .v6 = \"$np_v6\" | .reserved = $np_res"
+        sleep 4
 
         local retry_ep=0
         while IFS= read -r cand; do
@@ -508,6 +524,8 @@ select_best_warp_config() {
     if [[ $rc -eq 2 ]]; then
         echo "$backup_conf" > "$WARP_CONF"
         rebuild_config >/dev/null 2>&1
+        sleep 4
+        check_warp_health 1 >/dev/null 2>&1 || true
     fi
     return 1
 }
@@ -597,7 +615,8 @@ enable_warp() {
                 last_exit_ip: "",
                 last_check: ""
             }' > "$WARP_CONF"
-        print_ok "WARP 设备凭证申请成功！"
+        print_ok "WARP 设备凭证申请成功！等待 Cloudflare 边缘节点同步密钥 (5 秒)..."
+        sleep 5
     else
         update_warp_conf_fields ".enabled = true | .socks_port = $socks_port"
     fi
