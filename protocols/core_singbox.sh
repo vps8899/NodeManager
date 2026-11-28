@@ -280,6 +280,7 @@ _build_singbox_config_to_file() {
             --argjson bdoms "$builtin_domains" \
             '[
               { outbound: "any", server: "dns_direct" },
+              { inbound: ["warp-test-in"], server: "dns_warp" },
               { rule_set: $rtags, server: "dns_warp" },
               { domain_suffix: $bdoms, server: "dns_warp" }
             ]')
@@ -297,6 +298,7 @@ _build_singbox_config_to_file() {
             --argjson bdoms "$builtin_domains" \
             '[
               { outbound: "any", server: "dns_direct" },
+              { inbound: ["warp-test-in"], server: "dns_warp" },
               { domain_suffix: $bdoms, server: "dns_warp" }
             ]')
         route_rules_json=$(jq -nc \
