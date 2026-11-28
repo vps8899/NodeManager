@@ -686,6 +686,9 @@ show_warp_status() {
     last_region=$(jq -r '.last_region // "-"' "$WARP_CONF")
     last_exit_ip=$(jq -r '.last_exit_ip // "-"' "$WARP_CONF")
     last_check=$(jq -r '.last_check // "-"' "$WARP_CONF")
+    [[ -z "$last_region" ]] && last_region="待检测"
+    [[ -z "$last_exit_ip" ]] && last_exit_ip="待检测"
+    [[ -z "$last_check" ]] && last_check="尚未检测"
 
     echo -e "分流开关: $([[ "$enabled" == "true" ]] && echo -e "${GREEN}已开启${PLAIN}" || echo -e "${RED}已关闭${PLAIN}")"
     echo -e "分流范围: ${CYAN}仅 Google 全家桶 (搜索/Play商店/账号) + Gemini / Google AI${PLAIN}"
@@ -728,7 +731,7 @@ auto_check_warp() {
     # 二次防抖确认，避免瞬时网络抖动误切换
     sleep 8
     if check_warp_health 1; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] OK after retry" >> "$WARP_LOG"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] OK after retry region=$(jq -r '.last_region' "$WARP_CONF") ip=$(jq -r '.last_exit_ip' "$WARP_CONF")" >> "$WARP_LOG"
         return 0
     fi
 
